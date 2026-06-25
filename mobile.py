@@ -17,6 +17,7 @@ Kullanım:
 from __future__ import annotations
 
 import re
+import sys
 import socket
 import shutil
 import subprocess
@@ -84,16 +85,39 @@ def docker_up() -> bool:
         return False
 
 
+def _draw_qr_python(url: str) -> bool:
+    """Saf-Python QR (TTY gerektirmez, ağ paket indirmesine bağımlı değil)."""
+    try:
+        import qrcode
+    except ImportError:
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--quiet", "qrcode"],
+                check=True,
+            )
+            import qrcode  # noqa: F811
+        except Exception:
+            return False
+    qr = qrcode.QRCode(border=2)
+    qr.add_data(url)
+    qr.make(fit=True)
+    qr.print_ascii(invert=True)
+    return True
+
+
 def draw_qr(url: str) -> None:
-    """Terminale QR kodu çizer (npx qrcode-terminal)."""
+    """Terminale QR kodu çizer: önce Python qrcode, olmazsa npx qrcode-terminal."""
     bar = "═" * 54
     print(f"\n{bar}")
     print(f"  📱  Telefonunuzun kamerasıyla tarayın:  {url}")
     print(f"{bar}\n")
+    if _draw_qr_python(url):
+        return
+    # Yedek: npx qrcode-terminal
     try:
         subprocess.run(["npx", "--yes", "qrcode-terminal", url], check=False)
     except FileNotFoundError:
-        print("(npx bulunamadı — yukarıdaki adresi telefon tarayıcısına elle yazın.)")
+        print("(QR çizilemedi — yukarıdaki adresi telefon tarayıcısına elle yazın.)")
 
 
 def main() -> None:
