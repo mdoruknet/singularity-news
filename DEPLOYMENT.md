@@ -119,7 +119,26 @@ The backend image is defined in [`backend/Dockerfile`](backend/Dockerfile)
 3. Provide `ANTHROPIC_API_KEY`.
 4. Run the **scheduler** as a *separate* process (never inside the 4-worker API).
 
-### Option A — Render.com
+### Option A — Render.com (one-click Blueprint)
+
+The repo ships a [`render.yaml`](render.yaml) Blueprint that provisions all three
+services at once: **New → Blueprint → pick this repo**. It creates:
+
+- `singularity-backend` (Docker web service, **Starter plan** — required so the
+  attached 1 GB disk at `/data` persists the SQLite DB), with an auto-generated
+  `CRON_SECRET`. You only enter `ANTHROPIC_API_KEY` manually.
+- `singularity-frontend` (free static site) whose `VITE_API_URL` is wired to the
+  backend's `RENDER_EXTERNAL_URL`.
+- `singularity-cron` (Render native cron, every 2 h) that POSTs to `/api/refresh`
+  with the shared `x-cron-secret` header.
+
+> The `/api/refresh` endpoint rejects calls without the matching `CRON_SECRET`
+> (HTTP 403), and the UI's "New Edition" button is hidden outside `localhost` —
+> together these stop the public internet from running up your LLM bill.
+
+Prefer to wire it by hand instead? The manual steps:
+
+#### Manual setup
 
 - **Web Service** from `backend/` (Docker).
   - Add a **Disk**, mount path e.g. `/data` (1 GB is plenty).
