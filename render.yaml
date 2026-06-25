@@ -1,21 +1,18 @@
 services:
-  # 1. BACKEND (FastAPI API)
+  # 1. BACKEND (FastAPI API) — Ücretsiz katman
+  # Not: Free plan'da kalıcı disk yoktur; servis hareketsizlikte uykuya geçer ve
+  # yeniden başlayınca SQLite sıfırlanır. Haberleri yeniden doldurmak için
+  # arayüzdeki "Yeni Baskı" butonu kullanılır.
   - type: web
     name: singularity-backend
     env: docker
     dockerfilePath: backend/Dockerfile
-    plan: starter # SQLite veritabanının silinmemesi için Starter planı ($7/ay) gerekir
-    disk:
-      name: singularity-data
-      mountPath: /data
-      sizeGB: 1
+    plan: free
     envVars:
       - key: SINGULARITY_DB
-        value: /data/singularity.db
+        value: singularity.db
       - key: ALLOWED_ORIGINS
         value: "*"
-      - key: CRON_SECRET
-        generateValue: true # Render güvenli bir şifre üretir
       - key: ANTHROPIC_API_KEY
         sync: false # Render dashboard'dan manuel girilecek
 
@@ -31,22 +28,3 @@ services:
           type: web
           name: singularity-backend
           envVarKey: RENDER_EXTERNAL_URL
-
-  # 3. OTONOM ZAMANLAYICI (Render Native Cron)
-  - type: cron
-    name: singularity-cron
-    env: docker
-    dockerfilePath: backend/Dockerfile
-    schedule: "0 */2 * * *" # Her 2 saatte bir
-    command: python -c "import urllib.request, os; req = urllib.request.Request(os.environ['BACKEND_URL'] + '/api/refresh', headers={'x-cron-secret': os.environ['CRON_SECRET']}, method='POST'); urllib.request.urlopen(req)"
-    envVars:
-      - key: BACKEND_URL
-        fromService:
-          type: web
-          name: singularity-backend
-          envVarKey: RENDER_EXTERNAL_URL
-      - key: CRON_SECRET
-        fromService:
-          type: web
-          name: singularity-backend
-          envVarKey: CRON_SECRET

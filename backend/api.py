@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 import uuid
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Header
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import (
@@ -100,20 +100,8 @@ def _pipeline_job(job_id: str, per_feed: int) -> None:
 
 
 @app.post("/api/refresh")
-def refresh(
-    background_tasks: BackgroundTasks,
-    per_feed: int = 4,
-    x_cron_secret: str | None = Header(None),
-) -> dict:
-    """Çeviri hattını arka planda tetikler ve takip için bir job_id döndürür.
-
-    Maliyet koruması: CRON_SECRET tanımlıysa, istek 'x-cron-secret' başlığında
-    aynı değeri taşımalıdır. Tanımlı değilse (yerel ortam) kontrol atlanır.
-    """
-    expected_secret = os.getenv("CRON_SECRET")
-    if expected_secret and x_cron_secret != expected_secret:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-
+def refresh(background_tasks: BackgroundTasks, per_feed: int = 4) -> dict:
+    """Çeviri hattını arka planda tetikler ve takip için bir job_id döndürür."""
     job_id = str(uuid.uuid4())
     create_job(job_id)  # 'running' olarak diske yazılır; tüm worker'lar görür.
     background_tasks.add_task(_pipeline_job, job_id, per_feed)

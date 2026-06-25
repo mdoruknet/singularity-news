@@ -53,13 +53,6 @@ const API_URL = `${API_BASE}/api/articles`;
 const REFRESH_URL = `${API_BASE}/api/refresh`;
 const STATUS_URL = `${API_BASE}/api/status`;
 
-// Maliyet koruması: "Yeni Baskı" tetikleyicisi yalnızca yerel geliştirmede.
-// Production'da sıradan kullanıcılar API faturasını şişiremez.
-const IS_LOCAL =
-  typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1");
-
 const FALLBACK_IMG =
   "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80";
 
@@ -462,7 +455,7 @@ function Masthead({
               {live ? "Canlı" : "Demo"}
             </span>
 
-            {live && IS_LOCAL && (
+            {live && (
               <button
                 onClick={onRefresh}
                 disabled={isRefreshing}
