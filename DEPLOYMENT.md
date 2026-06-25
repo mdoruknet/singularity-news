@@ -16,6 +16,72 @@ redeploys.
 
 ---
 
+## 0) Fastest path — prebuilt images from GHCR (no build on the server)
+
+Every push to `main` builds and publishes both images to the **GitHub Container
+Registry** via the `docker-publish` CI job:
+
+- `ghcr.io/mdoruknet/singularity-frontend:latest` (and `:<commit-sha>`)
+- `ghcr.io/mdoruknet/singularity-backend:latest` (and `:<commit-sha>`)
+
+On any Docker host you can then **pull and run** — no source checkout, no build.
+Create a `docker-compose.yml` like this and run `docker compose up -d`:
+
+```yaml
+services:
+  backend:
+    image: ghcr.io/mdoruknet/singularity-backend:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - SINGULARITY_DB=/data/singularity.db
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    volumes:
+      - singularity-data:/data
+    restart: unless-stopped
+
+  scheduler:
+    image: ghcr.io/mdoruknet/singularity-backend:latest
+    command: python scheduler.py
+    environment:
+      - SINGULARITY_DB=/data/singularity.db
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - singularity-data:/data
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/mdoruknet/singularity-frontend:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  singularity-data:
+```
+
+```bash
+cp .env.example .env          # set ANTHROPIC_API_KEY (and ALLOWED_ORIGINS)
+docker compose pull           # fetch the latest images from GHCR
+docker compose up -d          # start frontend + backend + scheduler
+```
+
+> Pin to an immutable release by replacing `:latest` with a specific
+> `:<commit-sha>` tag.
+>
+> ⚠️ **Frontend API URL is baked at build time.** The published frontend image
+> uses the CI default `VITE_API_URL=http://localhost:8000`, which is fine when the
+> browser and backend share a host. For a real domain, either rebuild the frontend
+> image with `--build-arg VITE_API_URL=https://api.example.com`, or serve the API
+> behind the same origin via a reverse proxy.
+
+---
+
 ## 1) Frontend → Vercel
 
 The frontend is a static SPA; any static host works, but Vercel is simplest.

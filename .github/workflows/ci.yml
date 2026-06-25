@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# GHCR'a imaj yazabilmek için gereken izinler
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   frontend-build:
     name: Frontend — build
@@ -37,3 +42,47 @@ jobs:
         run: pip install -r backend/requirements.txt
       - name: Compile (py_compile)
         run: python -m py_compile backend/*.py
+
+  docker-publish:
+    name: Docker — build & push to GHCR
+    needs: [frontend-build, backend-test]
+    runs-on: ubuntu-latest
+    # Sadece main'e push'ta yayınla (PR'larda secret erişimi yok / yayın istemeyiz)
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ghcr.io/mdoruknet/singularity-frontend:latest
+            ghcr.io/mdoruknet/singularity-frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ghcr.io/mdoruknet/singularity-backend:latest
+            ghcr.io/mdoruknet/singularity-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
