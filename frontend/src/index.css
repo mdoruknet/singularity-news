@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+/* Sınıf tabanlı (toggle) karanlık mod — Tailwind v4 custom variant.
+   <html class="dark"> olduğunda tüm dark: yardımcıları devreye girer. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ----- Tipografi sistemi (NYT mantığı) -----
+   blackletter : logo (gotik)
+   display     : manşetler ve gövde metni (tırnaklı / serif)
+   serif       : klasik gazete gövdesi yedeği
+   sans        : meta veriler (yazar, tarih, kategori, kicker) */
+@theme {
+  --font-blackletter: "UnifrakturMaguntia", "Playfair Display", serif;
+  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --font-serif: Georgia, "Times New Roman", Times, serif;
+  --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: #ffffff;
+  color: #121212;
+  font-family: var(--font-serif);
+}
+
+/* Karanlık mod: saf siyah değil, editoryal antrasit. */
+.dark {
+  color-scheme: dark;
+}
+.dark body {
+  background: #121212;
+  color: #e5e7eb;
+}
+
+/* NYT stili "Drop Cap" — makalenin ilk paragrafının ilk harfi */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 5.2rem;
+  line-height: 0.74;
+  padding: 0.32rem 0.6rem 0 0;
+  margin: 0.05rem 0 -0.2rem 0;
+  color: #121212;
+}
+.dark .drop-cap::first-letter {
+  color: #f3f4f6;
+}
+
+/* İnce, tipografik küçük başlık ayıracı (★) */
+.rule-star::before,
+.rule-star::after {
+  content: "";
+  display: inline-block;
+  width: 28px;
+  height: 1px;
+  background: #121212;
+  vertical-align: middle;
+  margin: 0 10px;
+}
+.dark .rule-star::before,
+.dark .rule-star::after {
+  background: #e5e7eb;
+}
+
+/* Yumuşak görsel geçişleri */
+.img-zoom {
+  overflow: hidden;
+}
+.img-zoom img {
+  transition: transform 0.6s cubic-bezier(0.2, 0.6, 0.2, 1);
+}
+.img-zoom:hover img {
+  transform: scale(1.04);
+}
+
+::selection {
+  background: #121212;
+  color: #fff;
+}
+.dark ::selection {
+  background: #e5e7eb;
+  color: #121212;
+}
+
+/* "Yeni Baskı" sonrası bilgilendirme (toast) girişi */
+@keyframes toast-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.toast-in {
+  animation: toast-up 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}

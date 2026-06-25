@@ -1,0 +1,56 @@
+# Singularity — production benzeri yerel orkestrasyon
+# Kullanım:
+#   cp .env.example .env   (ANTHROPIC_API_KEY'i doldurun)
+#   docker compose up --build
+#
+# Servisler:
+#   frontend  → Nginx (port 80) — derlenmiş React
+#   backend   → FastAPI + uvicorn (port 8000, 4 worker)
+#   scheduler → APScheduler tek süreç (anti-collision), her 2 saatte bir hattı çalıştırır
+#
+# Kalıcılık: SQLite dosyası, /data altındaki "singularity-data" named volume'ünde
+# tutulur (kod dizinini EZMEMEK için DB'yi ayrı bir dizine alıyoruz). backend ve
+# scheduler bu volume'ü paylaşır; container'lar kapansa da haberler silinmez.
+
+services:
+  backend:
+    build: ./backend
+    image: singularity-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - SINGULARITY_DB=/data/singularity.db
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - singularity-data:/data
+    restart: unless-stopped
+
+  scheduler:
+    # Backend imajını yeniden kullanır; ama API yerine scheduler'ı çalıştırır.
+    build: ./backend
+    image: singularity-backend
+    command: python scheduler.py
+    environment:
+      - SINGULARITY_DB=/data/singularity.db
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - singularity-data:/data
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Tarayıcı backend'e host üzerinden eriştiği için localhost:8000 yeterli.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    image: singularity-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  singularity-data:

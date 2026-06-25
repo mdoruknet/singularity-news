@@ -1,0 +1,23 @@
+# Node / frontend
+node_modules/
+dist/
+*.local
+
+# Python / backend
+__pycache__/
+*.pyc
+.venv/
+*.db
+
+# Docker kalıcı veri dizini (asla commit etme)
+data/
+/data/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+*.log

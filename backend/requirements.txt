@@ -1,0 +1,11 @@
+# Singularity — Backend bağımlılıkları
+anthropic>=0.69.0        # Claude API (bağlam temelli çeviri)
+feedparser>=6.0.11       # RSS/Atom besleme ayrıştırma
+beautifulsoup4>=4.12.3   # HTML kazıma (makale gövdesi, og:image)
+requests>=2.32.3         # HTTP istekleri
+lxml>=5.3.0              # Hızlı HTML/XML ayrıştırıcı
+fastapi>=0.115.0         # Frontend'e haber sunan API
+uvicorn[standard]>=0.32.0
+python-dotenv>=1.0.1     # ANTHROPIC_API_KEY için .env desteği
+pydantic>=2.9.0          # Yapısal LLM çıktısı şeması
+apscheduler>=3.10.4      # Otonom çakışmasız zamanlayıcı (scheduler.py)
