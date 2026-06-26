@@ -933,7 +933,7 @@ function Masthead({
             className="group mx-auto block flex-1 select-none"
             aria-label="Singularity ana sayfa"
           >
-            <h1 className="font-logo text-[2.85rem] leading-none text-black transition-opacity group-hover:opacity-80 dark:text-white sm:text-6xl md:text-7xl lg:text-8xl">
+            <h1 className="font-logo text-[2rem] leading-none text-black transition-opacity group-hover:opacity-80 dark:text-white sm:text-4xl md:text-6xl lg:text-7xl">
               Singularity
             </h1>
           </button>
@@ -1594,7 +1594,7 @@ function ArticleView({ article, articles, onOpen, goHome }) {
           <p
             key={i}
             className={
-              "font-display text-[1.18rem] leading-[1.7] text-neutral-900 dark:text-gray-200 sm:text-[1.22rem] " +
+              "font-serif text-[1.18rem] leading-[1.75] text-neutral-900 dark:text-gray-200 sm:text-[1.2rem] " +
               (i === 0 ? "drop-cap" : "mt-6")
             }
           >
@@ -1801,7 +1801,7 @@ function ColumnView({ columnist, column, onBack, goHome }) {
           <p
             key={i}
             className={
-              "font-display text-[1.18rem] leading-[1.7] text-neutral-900 dark:text-gray-200 sm:text-[1.22rem] " +
+              "font-serif text-[1.18rem] leading-[1.75] text-neutral-900 dark:text-gray-200 sm:text-[1.2rem] " +
               (i === 0 ? "drop-cap" : "mt-6")
             }
           >

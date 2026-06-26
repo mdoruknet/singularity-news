@@ -13,16 +13,17 @@
   --font-logo: "UnifrakturCook", "Playfair Display", Georgia, serif;
   --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
   --font-serif: Georgia, "Times New Roman", Times, serif;
-  --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+  /* NYT arayüz sans'ı: Libre Franklin = NYT'nin Franklin Gothic'i. */
+  --font-sans: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Masthead logosu: Wall Street Journal tarzı yoğun gotik (Textura) manşet —
-   UnifrakturCook 700. Klasik gazete amblemi havası taşır, ama 'S' ve 'y'
-   harfleri net okunur. */
+   UnifrakturCook 700, TÜM HARFLER BÜYÜK. Geri kalan arayüz NYT ile birebir. */
 .font-logo {
   font-family: var(--font-logo);
   font-weight: 700;
-  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 html {
