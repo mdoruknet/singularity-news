@@ -173,6 +173,21 @@ _REAL_FEEDS: list[dict[str, str]] = [
      "url": "https://www.jpost.com/rss/rssfeedsfrontpage.aspx"},
     {"name": "Euronews", "region": "Küresel", "category": "Dünya",
      "url": "https://www.euronews.com/rss"},
+    # ----- Elit Edebiyat & Kültür (yalnızca Edebiyat / Kültür Sanat) -----
+    {"name": "The New Yorker", "region": "Kültür", "category": "Edebiyat",
+     "url": "https://www.newyorker.com/feed/everything"},
+    {"name": "NY Review of Books", "region": "Kültür", "category": "Edebiyat",
+     "url": "https://www.nybooks.com/feed/"},
+    {"name": "The Paris Review", "region": "Kültür", "category": "Edebiyat",
+     "url": "https://www.theparisreview.org/blog/feed/"},
+    {"name": "London Review of Books", "region": "Kültür", "category": "Edebiyat",
+     "url": "https://www.lrb.co.uk/feeds/rss"},
+    {"name": "Granta", "region": "Kültür", "category": "Edebiyat",
+     "url": "https://granta.com/feed/"},
+    {"name": "ARTnews", "region": "Kültür", "category": "Kültür Sanat",
+     "url": "https://www.artnews.com/feed/"},
+    {"name": "The Art Newspaper", "region": "Kültür", "category": "Kültür Sanat",
+     "url": "https://www.theartnewspaper.com/rss"},
     # ----- Türkiye -----
     {"name": "Sözcü", "region": "Türkiye", "category": "Gündem",
      "url": "https://www.sozcu.com.tr/feed/"},
@@ -245,6 +260,9 @@ _PROXY_SOURCES: list[tuple[str, str, str, str, str, str]] = [
     ("Haaretz", "Küresel", "Dünya", "haaretz.com", "en-US", "US"),
     ("Bild", "Küresel", "Gündem", "bild.de", "de", "DE"),
     ("El País", "Küresel", "Dünya", "elpais.com", "es", "ES"),
+    # ----- Elit Edebiyat & Kültür (yalnızca Edebiyat / Kültür Sanat) -----
+    ("TLS", "Kültür", "Edebiyat", "the-tls.co.uk", "en-US", "US"),
+    ("Artforum", "Kültür", "Kültür Sanat", "artforum.com", "en-US", "US"),
     # ----- Türkiye -----
     ("Mynet", "Türkiye", "Gündem", "mynet.com", "tr", "TR"),
     ("Ensonhaber", "Türkiye", "Gündem", "ensonhaber.com", "tr", "TR"),
@@ -294,9 +312,10 @@ def _build_feeds() -> list[dict[str, str]]:
 FEEDS: list[dict[str, str]] = _build_feeds()
 
 # Frontend filtresiyle birebir aynı olması için kaynak adları (bölgeye göre).
-SOURCE_NAMES: dict[str, list[str]] = {"Türkiye": [], "Küresel": []}
+# "Kültür" = elit edebiyat & kültür kaynakları (ayrı grup olarak listelenir).
+SOURCE_NAMES: dict[str, list[str]] = {"Türkiye": [], "Küresel": [], "Kültür": []}
 for _f in FEEDS:
-    _bucket = SOURCE_NAMES["Türkiye"] if _f["region"] == "Türkiye" else SOURCE_NAMES["Küresel"]
+    _bucket = SOURCE_NAMES.get(_f["region"], SOURCE_NAMES["Küresel"])
     if _f["name"] not in _bucket:
         _bucket.append(_f["name"])
 

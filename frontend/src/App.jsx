@@ -67,8 +67,17 @@ const SOURCE_GROUPS = {
     "The Times", "Financial Times", "Daily Mail", "HuffPost", "Haaretz", "Bild",
     "El País",
   ],
+  "Edebiyat & Kültür": [
+    "The New Yorker", "NY Review of Books", "The Paris Review",
+    "London Review of Books", "Granta", "ARTnews", "The Art Newspaper", "TLS",
+    "Artforum",
+  ],
 };
-const ALL_SOURCES = [...SOURCE_GROUPS.Türkiye, ...SOURCE_GROUPS.Küresel];
+const ALL_SOURCES = [
+  ...SOURCE_GROUPS.Türkiye,
+  ...SOURCE_GROUPS.Küresel,
+  ...SOURCE_GROUPS["Edebiyat & Kültür"],
+];
 
 const DEFAULT_PREFS = { categories: ALL_CATEGORIES, sources: ALL_SOURCES };
 
@@ -77,7 +86,7 @@ const FOR_YOU = "Bana Özel"; // Giriş yapmış kullanıcıya özel akış etik
 const THEME_KEY = "singularity:theme";
 const PREFS_KEY = "singularity:prefs";
 const PREFS_VER_KEY = "singularity:prefs:v";
-const PREFS_VERSION = "2"; // Kaynak listesi 80+ kaynağa genişledi (göç tetikleyici).
+const PREFS_VERSION = "3"; // Elit edebiyat & kültür kaynakları eklendi (göç tetikleyici).
 const TOKEN_KEY = "singularity:token";
 
 // Production'da Vercel/Render'da VITE_API_URL ile ezilir; yoksa yerel backend.
@@ -1252,8 +1261,8 @@ function PreferencesDrawer({
                 {ALL_SOURCES.length} kaynak
               </span>
             </div>
-            {/* 80+ kaynak ekrana sığmaz: bölümü kendi içinde kaydırılabilir yap. */}
-            <div className="custom-scrollbar max-h-72 overflow-y-auto pr-1">
+            {/* 90+ kaynak ekrana sığmaz: bölümü kendi içinde kaydırılabilir yap. */}
+            <div className="custom-scrollbar max-h-[60vh] overflow-y-auto pr-1">
               {Object.entries(SOURCE_GROUPS).map(([group, list]) => (
                 <div key={group} className="mb-3">
                   <p className="sticky top-0 mt-2 mb-1 bg-white py-1 font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400 dark:bg-neutral-900 dark:text-neutral-500">
