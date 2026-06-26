@@ -46,9 +46,27 @@ const ALL_CATEGORIES = [
   "Spor",
 ];
 
+// Backend scraper.py SOURCE_NAMES ile birebir aynı (filtre eşleşmesi için).
 const SOURCE_GROUPS = {
-  Türkiye: ["NTV", "Hürriyet", "Sözcü", "BBC Türkçe"],
-  Küresel: ["Reuters", "AP", "Bloomberg", "The Guardian", "BBC"],
+  Türkiye: [
+    "Sözcü", "Hürriyet", "Sabah", "Milliyet", "Habertürk", "CNN Türk", "NTV",
+    "TRT Haber", "Cumhuriyet", "T24", "BBC TR", "Euronews TR", "Diken", "Mynet",
+    "Ensonhaber", "Haberler.com", "TGRT", "A Haber", "Yeni Şafak",
+    "Türkiye Gazetesi", "Akşam", "Karar", "OdaTV", "AA", "İHA", "DHA", "BirGün",
+    "Duvar", "Korkusuz", "Aydınlık", "Halk TV", "Tele1", "Dünya",
+    "Independent TR", "Onedio", "Memurlar.net", "Internet Haber",
+    "Gerçek Gündem", "Haber Global",
+  ],
+  Küresel: [
+    "NYT", "CNN", "BBC News", "Google News", "The Guardian", "Fox News",
+    "Washington Post", "USA Today", "NBC", "AP", "Bloomberg", "WSJ", "NY Post",
+    "Newsweek", "Axios", "Politico", "NPR", "CBS", "Sky News", "Independent",
+    "The Sun", "Mirror", "Metro UK", "Al Jazeera", "France 24", "Le Monde",
+    "Le Figaro", "Der Spiegel", "Die Welt", "El Mundo", "Corriere", "Repubblica",
+    "Jerusalem Post", "Euronews", "Reuters", "MSN", "ABC", "Telegraph",
+    "The Times", "Financial Times", "Daily Mail", "HuffPost", "Haaretz", "Bild",
+    "El País",
+  ],
 };
 const ALL_SOURCES = [...SOURCE_GROUPS.Türkiye, ...SOURCE_GROUPS.Küresel];
 
@@ -58,6 +76,8 @@ const FOR_YOU = "Bana Özel"; // Giriş yapmış kullanıcıya özel akış etik
 
 const THEME_KEY = "singularity:theme";
 const PREFS_KEY = "singularity:prefs";
+const PREFS_VER_KEY = "singularity:prefs:v";
+const PREFS_VERSION = "2"; // Kaynak listesi 80+ kaynağa genişledi (göç tetikleyici).
 const TOKEN_KEY = "singularity:token";
 
 // Production'da Vercel/Render'da VITE_API_URL ile ezilir; yoksa yerel backend.
@@ -576,11 +596,21 @@ function loadPrefs() {
     const raw = localStorage.getItem(PREFS_KEY);
     if (raw) {
       const p = JSON.parse(raw);
+      const ver = localStorage.getItem(PREFS_VER_KEY);
+      const categories = Array.isArray(p.categories)
+        ? p.categories.filter((c) => ALL_CATEGORIES.includes(c))
+        : DEFAULT_PREFS.categories;
+      // Kaynak listesi v2'de 9 → 84 kaynağa büyüdü. Eski sürümden gelen
+      // kullanıcılar yeni kaynakları kaçırmasın diye göçte tümünü seçili getir.
+      const sources =
+        ver !== PREFS_VERSION
+          ? [...ALL_SOURCES]
+          : Array.isArray(p.sources)
+            ? p.sources.filter((s) => ALL_SOURCES.includes(s))
+            : DEFAULT_PREFS.sources;
       return {
-        categories: Array.isArray(p.categories)
-          ? p.categories
-          : DEFAULT_PREFS.categories,
-        sources: Array.isArray(p.sources) ? p.sources : DEFAULT_PREFS.sources,
+        categories: categories.length ? categories : DEFAULT_PREFS.categories,
+        sources,
       };
     }
   } catch {
@@ -1214,24 +1244,32 @@ function PreferencesDrawer({
           </section>
 
           <section>
-            <p className="rule-star mb-2 font-sans text-[11px] font-bold uppercase tracking-[0.2em] text-black dark:text-white">
-              Kaynaklar
-            </p>
-            {Object.entries(SOURCE_GROUPS).map(([group, list]) => (
-              <div key={group} className="mb-3">
-                <p className="mt-2 mb-1 font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400 dark:text-neutral-500">
-                  {group}
-                </p>
-                {list.map((s) => (
-                  <CheckRow
-                    key={s}
-                    label={s}
-                    checked={prefs.sources.includes(s)}
-                    onChange={() => onToggle("sources", s)}
-                  />
-                ))}
-              </div>
-            ))}
+            <div className="mb-2 flex items-baseline justify-between">
+              <p className="rule-star font-sans text-[11px] font-bold uppercase tracking-[0.2em] text-black dark:text-white">
+                Kaynaklar
+              </p>
+              <span className="font-sans text-[10px] text-neutral-400 dark:text-neutral-500">
+                {ALL_SOURCES.length} kaynak
+              </span>
+            </div>
+            {/* 80+ kaynak ekrana sığmaz: bölümü kendi içinde kaydırılabilir yap. */}
+            <div className="custom-scrollbar max-h-72 overflow-y-auto pr-1">
+              {Object.entries(SOURCE_GROUPS).map(([group, list]) => (
+                <div key={group} className="mb-3">
+                  <p className="sticky top-0 mt-2 mb-1 bg-white py-1 font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400 dark:bg-neutral-900 dark:text-neutral-500">
+                    {group} · {list.length}
+                  </p>
+                  {list.map((s) => (
+                    <CheckRow
+                      key={s}
+                      label={s}
+                      checked={prefs.sources.includes(s)}
+                      onChange={() => onToggle("sources", s)}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
           </section>
         </div>
 
@@ -2002,10 +2040,11 @@ export default function App() {
     }
   }, [theme]);
 
-  // Tercihleri kalıcı kıl.
+  // Tercihleri kalıcı kıl (sürüm damgasıyla — kaynak göçü için).
   useEffect(() => {
     try {
       localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+      localStorage.setItem(PREFS_VER_KEY, PREFS_VERSION);
     } catch {
       /* yoksay */
     }

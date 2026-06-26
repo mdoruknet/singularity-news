@@ -22,12 +22,13 @@ Maliyet Kalkanı (Hybrid):
 
 from __future__ import annotations
 
+import os
 import argparse
 import logging
 
 from dotenv import load_dotenv
 
-from scraper import scrape_sources, is_clickbait, RawArticle
+from scraper import fetch_all_feeds, enrich_many, is_clickbait, RawArticle, PER_FEED_DEFAULT
 from translator import translate_article
 from database import init_db, article_exists, save_article
 
@@ -36,7 +37,10 @@ load_dotenv()  # .env içindeki ANTHROPIC_API_KEY'i yükle.
 logger = logging.getLogger("singularity.pipeline")
 
 # --- Hibrit ayarları (maliyet kalkanı) ---
-AI_BUDGET = 12        # Tek turda en çok bu kadar AI (Claude) çağrısı yapılır.
+# AI_BUDGET: tek turda en çok bu kadar AI (Claude) çağrısı yapılır. 150+ kaynak
+# her 10 dakikada içeri aksa da, fatura bu sınırla öngörülebilir kalır. Ortamdan
+# (AI_BUDGET) ezilebilir; varsayılan 12 (tur başına 10–15 aralığında).
+AI_BUDGET = int(os.environ.get("AI_BUDGET", "12"))
 HEADLINE_RANKS = 1    # Her beslemenin ilk N haberi "manşet" sayılır (AI'a gider).
 
 
@@ -95,22 +99,32 @@ def _save_raw_passthrough(raw: RawArticle) -> str:
     )
 
 
-def run(per_feed: int = 4) -> None:
+def run(per_feed: int = PER_FEED_DEFAULT) -> None:
     init_db()
     processed_ai, processed_raw, skipped, failed = 0, 0, 0, 0
     ai_used = 0
 
-    for raw in scrape_sources(per_feed=per_feed):
-        if not raw.source_url:
-            continue
+    # 1) PARALEL RSS taraması (150+ kaynak, timeout=7, kaynak başına 3 haber).
+    raws = fetch_all_feeds(per_feed=per_feed)
 
-        # 1) Tekrarı önle (aynı URL'i iki kez işleme; API ve zaman tasarrufu).
+    # 2) Tekrarı ÖNCE ele (zenginleştirmeden önce dedup → boşuna sayfa indirme yok).
+    fresh: list[RawArticle] = []
+    seen: set[str] = set()
+    for raw in raws:
+        if not raw.source_url or raw.source_url in seen:
+            continue
+        seen.add(raw.source_url)
         if article_exists(raw.source_url):
-            logger.info("Atlandı (mevcut): %s", raw.title[:60])
             skipped += 1
             continue
+        fresh.append(raw)
 
-        # 2) Karar: bu haber AI'a mı gidecek, ham mı kaydedilecek?
+    # 3) Yalnızca YENİ ve Google-News-dışı makaleleri PARALEL zenginleştir
+    #    (Google News linkleri yönlendirme olduğundan og:image/gövde vermez).
+    enrich_many([r for r in fresh if "news.google.com" not in (r.source_url or "")])
+
+    # 4) Her makale için karar: AI'a mı, ham mı?
+    for raw in fresh:
         if _should_use_ai(raw, ai_used):
             try:
                 translated = translate_article(raw)
@@ -143,7 +157,8 @@ def run(per_feed: int = 4) -> None:
             logger.info("AI ile kaydedildi: %s (%s)", translated.title[:60], article_id)
             processed_ai += 1
         else:
-            # 3) Ucuz kol: AI'sız, ham kayıt (rutin haber / skor).
+            # Ucuz kol: AI'sız, ham kayıt (rutin haber / skor). Bütçe dolsa veya
+            # tık tuzağı olmasa bile haber ÇÖPE ATILMAZ; rewritten=False kaydedilir.
             try:
                 article_id = _save_raw_passthrough(raw)
             except Exception as exc:  # noqa: BLE001
@@ -167,6 +182,6 @@ def run(per_feed: int = 4) -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description="Singularity haber çeviri hattı (hibrit)")
-    parser.add_argument("--per", type=int, default=4, help="Kaynak başına haber sayısı")
+    parser.add_argument("--per", type=int, default=PER_FEED_DEFAULT, help="Kaynak başına haber sayısı")
     args = parser.parse_args()
     run(per_feed=args.per)

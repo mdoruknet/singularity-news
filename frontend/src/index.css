@@ -117,6 +117,28 @@ body {
   padding-top: env(safe-area-inset-top);
 }
 
+/* İnce, zarif kaydırma çubuğu — uzun kaynak listesi (80+) için. */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #9ca3af transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #9ca3af;
+  border-radius: 9999px;
+}
+.dark .custom-scrollbar {
+  scrollbar-color: #4b5563 transparent;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+}
+
 /* Canlı bilgi şeridi (Live Ticker) — kayan maç sonuçları marquee'si */
 @keyframes ticker-scroll {
   from {
