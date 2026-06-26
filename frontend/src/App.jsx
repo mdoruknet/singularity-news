@@ -55,7 +55,8 @@ const SOURCE_GROUPS = {
     "Independent TR", "Onedio", "Memurlar.net", "Internet Haber",
     "Gerçek Gündem", "Haber Global",
     "Fanatik", "Fotomaç", "Sporx", "A Spor", "Ajansspor", "Fotospor",
-    "beIN Sports",
+    "beIN Sports", "NTV Spor", "Sabah Spor", "CNN Türk Spor", "TRT Spor",
+    "Skorer", "Spor Arena", "Mackolik", "Tivibu Spor",
   ],
   Küresel: [
     "NYT", "CNN", "BBC News", "Google News", "The Guardian", "Fox News",
@@ -66,7 +67,8 @@ const SOURCE_GROUPS = {
     "Jerusalem Post", "Euronews", "Reuters", "MSN", "ABC", "Telegraph",
     "The Times", "Financial Times", "Daily Mail", "HuffPost", "Haaretz", "Bild",
     "El País", "ESPN", "BBC Sport", "Sky Sports", "Marca", "AS", "L'Équipe",
-    "Gazzetta", "The Athletic", "Goal", "Bleacher Report",
+    "Gazzetta", "The Athletic", "Goal", "Bleacher Report", "Sports Illustrated",
+    "Fox Sports", "Eurosport",
   ],
   "Edebiyat & Kültür": [
     "The New Yorker", "NY Review of Books", "The Paris Review",
@@ -87,7 +89,7 @@ const FOR_YOU = "Bana Özel"; // Giriş yapmış kullanıcıya özel akış etik
 const THEME_KEY = "singularity:theme";
 const PREFS_KEY = "singularity:prefs";
 const PREFS_VER_KEY = "singularity:prefs:v";
-const PREFS_VERSION = "4"; // Spor kaynakları eklendi (göç tetikleyici).
+const PREFS_VERSION = "5"; // Daha fazla spor kanalı eklendi (göç tetikleyici).
 const TOKEN_KEY = "singularity:token";
 
 // Production'da Vercel/Render'da VITE_API_URL ile ezilir; yoksa yerel backend.
