@@ -139,25 +139,6 @@ body {
   background-color: #4b5563;
 }
 
-/* Canlı bilgi şeridi (Live Ticker) — kayan maç sonuçları marquee'si */
-@keyframes ticker-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-.ticker-marquee {
-  display: inline-flex;
-  white-space: nowrap;
-  will-change: transform;
-  animation: ticker-scroll 38s linear infinite;
-}
-.ticker-marquee:hover {
-  animation-play-state: paused;
-}
-
 /* Modal giriş animasyonu (Giriş/Kayıt) */
 @keyframes modal-pop {
   from {

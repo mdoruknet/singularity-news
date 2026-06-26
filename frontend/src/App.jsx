@@ -15,8 +15,6 @@ import {
   SlidersHorizontal,
   User,
   LogOut,
-  TrendingUp,
-  TrendingDown,
   Feather,
   ChevronRight,
   Sparkles,
@@ -718,103 +716,6 @@ function Avatar({ src, name, size = 56, className = "" }) {
   );
 }
 
-/* --------------------------- CANLI BİLGİ ŞERİDİ --------------------------- */
-
-const TICKER_INSTRUMENTS = [
-  { label: "BİST 100", base: 9847.32, decimals: 2, suffix: "" },
-  { label: "Dolar", base: 32.41, decimals: 3, suffix: " ₺" },
-  { label: "Euro", base: 35.18, decimals: 3, suffix: " ₺" },
-  { label: "Gram Altın", base: 2486.7, decimals: 2, suffix: " ₺" },
-];
-
-const TICKER_MATCHES = [
-  "⚽ Galatasaray 2–1 Fenerbahçe · 76'",
-  "⚽ Beşiktaş 0–0 Trabzonspor · 54'",
-  "🏀 Anadolu Efes 78–74 F.Bahçe Beko · Ç4",
-  "⚽ Real Madrid 3–2 Barcelona · 88'",
-  "⚽ Başakşehir 1–0 Antalyaspor · 63'",
-  "🏐 VakıfBank 2–1 Eczacıbaşı · 3. set",
-];
-
-const fmtNum = (n, d) =>
-  n.toLocaleString("tr-TR", { minimumFractionDigits: d, maximumFractionDigits: d });
-
-function LiveTicker() {
-  const [vals, setVals] = useState(() =>
-    TICKER_INSTRUMENTS.map((i) => ({ ...i, value: i.base }))
-  );
-
-  // Her saniye inandırıcı bir "rastgele yürüyüş" ile fiyatları güncelle.
-  useEffect(() => {
-    const id = setInterval(() => {
-      setVals((prev) =>
-        prev.map((v) => {
-          const drift = (Math.random() - 0.5) * v.base * 0.0012;
-          const lo = v.base * 0.985;
-          const hi = v.base * 1.015;
-          const next = Math.min(hi, Math.max(lo, v.value + drift));
-          return { ...v, value: next };
-        })
-      );
-    }, 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div className="safe-top bg-neutral-950 text-neutral-100">
-      <div className="mx-auto flex max-w-[1280px] items-stretch gap-3 px-4">
-        <span className="flex shrink-0 items-center gap-1.5 py-1.5 font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">
-          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
-          <span className="hidden sm:inline">Canlı</span>
-        </span>
-
-        {/* Piyasa kutuları */}
-        <div className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto py-1.5 font-sans text-[11px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {vals.map((v) => {
-            const change = ((v.value - v.base) / v.base) * 100;
-            const up = change >= 0;
-            return (
-              <span
-                key={v.label}
-                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"
-              >
-                <span className="font-semibold uppercase tracking-wide text-neutral-400">
-                  {v.label}
-                </span>
-                <span className="font-mono tabular-nums text-neutral-100">
-                  {fmtNum(v.value, v.decimals)}
-                  {v.suffix}
-                </span>
-                <span
-                  className={
-                    "inline-flex items-center gap-0.5 font-mono tabular-nums " +
-                    (up ? "text-emerald-400" : "text-red-400")
-                  }
-                >
-                  {up ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                  {up ? "+" : ""}
-                  {change.toFixed(2)}%
-                </span>
-              </span>
-            );
-          })}
-        </div>
-
-        {/* Kayan maç sonuçları (marquee) */}
-        <div className="hidden min-w-0 max-w-[42%] flex-1 items-center overflow-hidden border-l border-neutral-800 pl-3 md:flex">
-          <div className="ticker-marquee py-1.5 font-sans text-[11px] text-neutral-300">
-            {[...TICKER_MATCHES, ...TICKER_MATCHES].map((m, i) => (
-              <span key={i} className="mx-5 whitespace-nowrap">
-                {m}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ------------------------------ HEADER ------------------------------------- */
 
 function AccountControl({ user, onOpenAuth, onLogout, onForYou, compact = false }) {
@@ -859,6 +760,8 @@ function Masthead({
   live = false,
   isRefreshing = false,
   onRefresh,
+  onRefreshFeed,
+  feedRefreshing = false,
   theme,
   onToggleTheme,
   onOpenPrefs,
@@ -869,7 +772,7 @@ function Masthead({
 }) {
   const date = todayLong();
   return (
-    <header className="w-full">
+    <header className="safe-top w-full">
       {/* Üst hizmet çubuğu */}
       <div className="mx-auto max-w-[1280px] px-4">
         <div className="flex items-center justify-between border-b border-neutral-300 py-2 font-sans text-[11px] uppercase tracking-[0.12em] text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
@@ -925,6 +828,19 @@ function Masthead({
                 {isRefreshing ? "Baskı Hazırlanıyor…" : "Yeni Baskı"}
               </button>
             )}
+
+            <button
+              onClick={onRefreshFeed}
+              disabled={feedRefreshing}
+              aria-label="Akışı yenile"
+              title="Akışı yenile"
+              className={
+                "inline-flex items-center transition hover:text-black dark:hover:text-white " +
+                (feedRefreshing ? "cursor-wait text-blue-600 dark:text-blue-400" : "")
+              }
+            >
+              <RefreshCw size={14} className={feedRefreshing ? "animate-spin" : ""} />
+            </button>
 
             <AccountControl
               user={user}
@@ -1875,7 +1791,113 @@ const FOOTER_LINKS = {
   Kurumsal: ["Gizlilik Politikası", "Çerez Politikası", "Hizmet Şartları", "Abonelikler"],
 };
 
-function Footer({ goHome, onSelectCategory, onOpenColumnists }) {
+// Footer linklerinin açtığı bilgi modalının içeriği (kısa, demo metinler).
+const FOOTER_CONTENT = {
+  "Erişilebilirlik":
+    "Singularity, WCAG 2.1 AA hedefleriyle tasarlanır: yüksek kontrast, klavye ile gezinme, ekran okuyucu uyumu ve karanlık mod. Erişilebilirlikle ilgili geri bildirimlerinizi her zaman bekleriz.",
+  "Yardım":
+    "Sık sorulanlar: Akışınızı 'Akışımı Özelleştir' menüsünden kategorilere ve kaynaklara göre kişiselleştirebilir, 'Bana Özel' sekmesiyle yalnızca seçtiğiniz konuları görebilirsiniz. Sayfayı yenilemek için mobilde aşağı çekin.",
+  "Gizlilik Politikası":
+    "Verileriniz yalnızca deneyiminizi kişiselleştirmek için kullanılır. Tercihleriniz cihazınızda saklanır; üçüncü taraflarla pazarlama amacıyla paylaşılmaz. Bu bir demo platformudur; tüm haberler ilgili kaynaklarına aittir.",
+  "Çerez Politikası":
+    "Temel çerezler oturum ve tema/tercih tercihlerinizi hatırlamak için kullanılır. İzleme/analiz çerezleri yalnızca onayınızla etkinleşir. Tarayıcı ayarlarından çerezleri her zaman temizleyebilirsiniz.",
+  "Hizmet Şartları":
+    "Singularity, kamuya açık haber kaynaklarını yapay zeka ile derleyen, çeviren ve tık tuzağından arındıran bir okuma platformudur. İçerikler bilgilendirme amaçlıdır; doğruluk için lütfen orijinal kaynağa başvurun.",
+  "Abonelikler":
+    "Şimdilik tüm içerik ücretsizdir. Yakında 'Premium' ile reklamsız okuma, sınırsız 'Bana Özel' akışı ve köşe yazarı arşivi sunmayı planlıyoruz.",
+};
+
+function InfoModal({ open, title, onClose, onSelectCategory, onOpenColumnists }) {
+  if (!open) return null;
+  const isSitemap = title === "Site Haritası";
+  const isContact = title === "Bize Ulaşın";
+  const go = (fn) => {
+    fn();
+    onClose();
+  };
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div
+        onClick={onClose}
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        aria-hidden="true"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="modal-pop relative max-h-[85vh] w-full max-w-lg overflow-y-auto border border-neutral-300 bg-white p-7 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900"
+      >
+        <button
+          onClick={onClose}
+          aria-label="Kapat"
+          className="absolute right-3 top-3 rounded-full p-1 text-neutral-500 transition hover:bg-neutral-100 hover:text-black dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+        >
+          <X size={20} />
+        </button>
+
+        <Kicker>Singularity</Kicker>
+        <h2 className="mt-1 font-display text-3xl font-extrabold text-black dark:text-white">
+          {title}
+        </h2>
+        <div className="rule-star mt-3 mb-5 h-px" />
+
+        {isSitemap ? (
+          <div className="space-y-5">
+            <div>
+              <p className="mb-2 font-sans text-[11px] font-bold uppercase tracking-[0.16em] text-neutral-400">
+                Bölümler
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {ALL_CATEGORIES.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => go(() => onSelectCategory(c))}
+                    className="border border-neutral-300 px-3 py-1.5 font-sans text-[12px] font-semibold text-neutral-700 transition hover:border-black hover:text-black dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-white dark:hover:text-white"
+                  >
+                    {c}
+                  </button>
+                ))}
+                <button
+                  onClick={() => go(onOpenColumnists)}
+                  className="border border-neutral-300 px-3 py-1.5 font-sans text-[12px] font-semibold italic text-neutral-700 transition hover:border-black hover:text-black dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-white dark:hover:text-white"
+                >
+                  Köşe Yazarları
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : isContact ? (
+          <div className="space-y-4 font-serif text-[15px] leading-relaxed text-neutral-700 dark:text-neutral-300">
+            <p>
+              Görüş, öneri ve düzeltme talepleriniz için editoryal masamıza
+              ulaşabilirsiniz. Genellikle bir iş günü içinde dönüş yapıyoruz.
+            </p>
+            <a
+              href="mailto:iletisim@singularity.news"
+              className="inline-flex items-center gap-2 border border-black bg-black px-4 py-2 font-sans text-[12px] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-neutral-800 dark:border-white dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+            >
+              iletisim@singularity.news
+            </a>
+          </div>
+        ) : (
+          <p className="font-serif text-[15px] leading-relaxed text-neutral-700 dark:text-neutral-300">
+            {FOOTER_CONTENT[title] ||
+              "Bu bölüm yakında ayrıntılı içerikle güncellenecek."}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Footer({ goHome, onSelectCategory, onOpenColumnists, onOpenInfo, onSubscribe }) {
+  const [email, setEmail] = useState("");
+  const submitNewsletter = (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    onSubscribe(email.trim());
+    setEmail("");
+  };
   return (
     <footer className="border-t-[3px] border-double border-black dark:border-neutral-500">
       <div className="mx-auto max-w-[1280px] px-4 py-12">
@@ -1928,13 +1950,12 @@ function Footer({ goHome, onSelectCategory, onOpenColumnists }) {
               <ul className="mt-3 space-y-1.5">
                 {links.map((l) => (
                   <li key={l}>
-                    <a
-                      href="#"
-                      onClick={(e) => e.preventDefault()}
+                    <button
+                      onClick={() => onOpenInfo(l)}
                       className="font-sans text-[13px] text-neutral-600 transition hover:text-black hover:underline dark:text-neutral-400 dark:hover:text-white"
                     >
                       {l}
-                    </a>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -1949,19 +1970,22 @@ function Footer({ goHome, onSelectCategory, onOpenColumnists }) {
             <p className="mt-3 font-serif text-[13px] leading-relaxed text-neutral-600 dark:text-neutral-400">
               Günün ağırbaşlı özeti, her sabah kutunuzda.
             </p>
-            <div className="mt-3 flex">
+            <form onSubmit={submitNewsletter} className="mt-3 flex">
               <input
                 type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="E-posta"
                 className="w-full border border-neutral-300 bg-transparent px-2.5 py-2 font-sans text-[12px] text-black outline-none focus:border-black dark:border-neutral-700 dark:text-white dark:focus:border-white"
               />
               <button
-                onClick={(e) => e.preventDefault()}
+                type="submit"
                 className="shrink-0 border border-l-0 border-black bg-black px-3 font-sans text-[11px] font-bold uppercase tracking-[0.1em] text-white transition hover:bg-neutral-800 dark:border-white dark:bg-white dark:text-black"
               >
                 Katıl
               </button>
-            </div>
+            </form>
           </div>
         </div>
 
@@ -1973,14 +1997,13 @@ function Footer({ goHome, onSelectCategory, onOpenColumnists }) {
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 font-sans text-[11px] text-neutral-400 dark:text-neutral-500">
             {["Bize Ulaşın", "Gizlilik Politikası", "Hizmet Şartları", "Çerez Politikası"].map(
               (l) => (
-                <a
+                <button
                   key={l}
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
+                  onClick={() => onOpenInfo(l)}
                   className="transition hover:text-black dark:hover:text-white"
                 >
                   {l}
-                </a>
+                </button>
               )
             )}
           </div>
@@ -2029,13 +2052,19 @@ export default function App() {
   const [token, setToken] = useState(loadToken);
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [infoTitle, setInfoTitle] = useState(null); // Footer bilgi modalı
+  const [feedRefreshing, setFeedRefreshing] = useState(false); // akış yenileme
+  const [pullView, setPullView] = useState(0); // aşağı-çekme mesafesi (px)
 
   const refreshJobRef = useRef(null);
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
   const tokenRef = useRef(token);
   tokenRef.current = token;
+  const liveRef = useRef(live);
+  liveRef.current = live;
   const liveFetchDidMount = useRef(false);
+  const refreshFeedRef = useRef(() => {});
 
   // Tema: <html>'e uygula ve kalıcı kıl.
   useEffect(() => {
@@ -2129,6 +2158,86 @@ export default function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [view, activeId, activeColumn]);
+
+  // Akışı yenile: canlıysa API'den taze haberleri çek, değilse demo'yu tazele.
+  const refreshFeed = async () => {
+    if (feedRefreshing) return;
+    setFeedRefreshing(true);
+    try {
+      if (liveRef.current) {
+        const list = await fetchArticles(prefsRef.current);
+        if (list.length) setArticles(list);
+        try {
+          const cols = await fetchColumnists();
+          if (cols.length) setColumnists(cols);
+        } catch {
+          /* yoksay */
+        }
+      } else {
+        // Demo: en az görsel bir geri bildirim için listeyi yeniden kur.
+        setArticles(MOCK_ARTICLES.map(normalizeArticle));
+      }
+      setToast("Akış yenilendi.");
+    } catch {
+      setToast("Akış yenilenemedi. Bağlantınızı kontrol edin.");
+    } finally {
+      setFeedRefreshing(false);
+      setTimeout(() => setToast(""), 2500);
+    }
+  };
+  refreshFeedRef.current = refreshFeed;
+
+  // Mobilde "aşağı çekip bırak" (pull-to-refresh) jesti.
+  useEffect(() => {
+    const PULL_THRESHOLD = 70;
+    let startY = null;
+    let dist = 0;
+
+    const onStart = (e) => {
+      startY = window.scrollY <= 0 ? e.touches[0].clientY : null;
+      dist = 0;
+    };
+    const onMove = (e) => {
+      if (startY == null) return;
+      if (window.scrollY > 0) {
+        startY = null;
+        dist = 0;
+        setPullView(0);
+        return;
+      }
+      const dy = e.touches[0].clientY - startY;
+      if (dy > 0) {
+        dist = Math.min(dy * 0.5, 120); // sönümlenmiş mesafe
+        setPullView(dist);
+      }
+    };
+    const onEnd = () => {
+      if (dist > PULL_THRESHOLD) refreshFeedRef.current();
+      startY = null;
+      dist = 0;
+      setPullView(0);
+    };
+
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: true });
+    window.addEventListener("touchend", onEnd);
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onEnd);
+    };
+  }, []);
+
+  // Sayfa yeniden görünür olduğunda (uygulamaya dönüş = manuel yenileme) tazele.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && liveRef.current) {
+        refreshFeedRef.current();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   // Canlı modda tercihler değişince sunucudan filtrelenmiş veriyi yeniden çek.
   useEffect(() => {
@@ -2329,6 +2438,11 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const onSubscribe = (mail) => {
+    setToast(`Bültene kaydoldunuz: ${mail}`);
+    setTimeout(() => setToast(""), 3500);
+  };
+
   const active = activeId ? articles.find((a) => a.id === activeId) : null;
   const visible = articles.filter((a) =>
     isVisible(a, prefs, activeCategory, user)
@@ -2337,14 +2451,42 @@ export default function App() {
 
   if (loading) return <LoadingScreen />;
 
+  const pulling = pullView > 0 || feedRefreshing;
+
   return (
     <div className="min-h-screen bg-white text-[#121212] dark:bg-neutral-900 dark:text-gray-200">
-      <LiveTicker />
+      {/* Aşağı-çek / yenile göstergesi */}
+      {pulling && (
+        <div
+          className="safe-top pointer-events-none fixed inset-x-0 top-0 z-[65] flex justify-center"
+          style={{ opacity: feedRefreshing ? 1 : Math.min(pullView / 70, 1) }}
+        >
+          <div className="mt-2 flex items-center gap-2 rounded-full bg-black px-3.5 py-1.5 text-white shadow-lg dark:bg-white dark:text-black">
+            <RefreshCw
+              size={14}
+              className={feedRefreshing ? "animate-spin" : ""}
+              style={
+                feedRefreshing ? undefined : { transform: `rotate(${pullView * 3}deg)` }
+              }
+            />
+            <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.1em]">
+              {feedRefreshing
+                ? "Yenileniyor…"
+                : pullView > 70
+                  ? "Bırak, yenilensin"
+                  : "Yenilemek için çek"}
+            </span>
+          </div>
+        </div>
+      )}
+
       <Masthead
         goHome={goHome}
         live={live}
         isRefreshing={isRefreshing}
         onRefresh={handleRefresh}
+        onRefreshFeed={refreshFeed}
+        feedRefreshing={feedRefreshing}
         theme={theme}
         onToggleTheme={toggleTheme}
         onOpenPrefs={() => setDrawerOpen(true)}
@@ -2394,6 +2536,16 @@ export default function App() {
 
       <Footer
         goHome={goHome}
+        onSelectCategory={selectCategory}
+        onOpenColumnists={openColumnists}
+        onOpenInfo={setInfoTitle}
+        onSubscribe={onSubscribe}
+      />
+
+      <InfoModal
+        open={!!infoTitle}
+        title={infoTitle}
+        onClose={() => setInfoTitle(null)}
         onSelectCategory={selectCategory}
         onOpenColumnists={openColumnists}
       />
