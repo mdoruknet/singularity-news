@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import re
 import uuid
+import threading
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,8 +35,9 @@ from database import (
     get_columnist,
     get_all_columns,
     get_column,
-    seed_columnists,
+    save_columnists,
 )
+from scraper import COLUMNISTS, scrape_columnists
 from auth import (
     hash_password,
     verify_password,
@@ -67,10 +69,21 @@ app.add_middleware(
 )
 
 
+def _refresh_columnists_bg() -> None:
+    """Gerçek köşe yazılarını arka planda toplar (açılışı bloklamaz)."""
+    try:
+        save_columnists(scrape_columnists())
+    except Exception:  # noqa: BLE001
+        pass
+
+
 @app.on_event("startup")
 def _startup() -> None:
     init_db()
-    seed_columnists()  # Köşe yazarları boşsa mock verilerle doldurulur.
+    # Yazar üst bilgisini anında ekle (bölüm boş kalmasın); gerçek yazıları
+    # arka planda topla.
+    save_columnists([{**c, "columns": []} for c in COLUMNISTS])
+    threading.Thread(target=_refresh_columnists_bg, daemon=True).start()
 
 
 def _split_csv(value: str | None) -> list[str] | None:

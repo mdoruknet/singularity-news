@@ -14,7 +14,7 @@ import re
 import json
 import sqlite3
 import hashlib
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 DB_PATH = os.environ.get("SINGULARITY_DB", "singularity.db")
 
@@ -65,10 +65,11 @@ CREATE TABLE IF NOT EXISTS columnists (
     title      TEXT,
     bio        TEXT,
     avatar     TEXT,
+    page       TEXT,
     created_at TEXT NOT NULL
 );
 
--- Köşe yazıları. columnist_id, yazara bağlar.
+-- Köşe yazıları (gerçek yazarların gerçek yazıları; özet + kaynağa link).
 CREATE TABLE IF NOT EXISTS columns (
     id           TEXT PRIMARY KEY,
     columnist_id INTEGER NOT NULL,
@@ -79,10 +80,19 @@ CREATE TABLE IF NOT EXISTS columns (
     read_time    TEXT,
     date         TEXT,
     image        TEXT,
+    source_url   TEXT,
+    source_name  TEXT,
     created_at   TEXT NOT NULL,
     FOREIGN KEY (columnist_id) REFERENCES columnists (id)
 );
 """
+
+# Mevcut veritabanlarını (eski şema) yeni sütunlarla uyumlu kılan göç adımları.
+_MIGRATIONS = [
+    "ALTER TABLE columnists ADD COLUMN page TEXT",
+    "ALTER TABLE columns ADD COLUMN source_url TEXT",
+    "ALTER TABLE columns ADD COLUMN source_name TEXT",
+]
 
 
 def _connect() -> sqlite3.Connection:
@@ -92,9 +102,14 @@ def _connect() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Tabloyu (yoksa) oluşturur."""
+    """Tabloları (yoksa) oluşturur ve eski şemaları göç ettirir."""
     with _connect() as conn:
         conn.executescript(SCHEMA)
+        for stmt in _MIGRATIONS:
+            try:
+                conn.execute(stmt)
+            except sqlite3.OperationalError:
+                pass  # Sütun zaten var.
 
 
 def _slugify(title: str, source_url: str) -> str:
@@ -365,6 +380,14 @@ def update_user_preferences(user_id: int, preferences: dict) -> dict | None:
 # --------------------------------------------------------------------------- #
 
 
+def _row_get(row: sqlite3.Row, key: str, default=None):
+    """Eski şemada olmayabilecek sütunları güvenle okur."""
+    try:
+        return row[key]
+    except (IndexError, KeyError):
+        return default
+
+
 def _columnist_to_frontend(row: sqlite3.Row) -> dict:
     return {
         "id": row["id"],
@@ -373,6 +396,7 @@ def _columnist_to_frontend(row: sqlite3.Row) -> dict:
         "title": row["title"],
         "bio": row["bio"],
         "avatar": row["avatar"],
+        "page": _row_get(row, "page"),
     }
 
 
@@ -387,6 +411,8 @@ def _column_to_frontend(row: sqlite3.Row, columnist: dict | None = None) -> dict
         "readTime": row["read_time"],
         "date": row["date"],
         "image": row["image"],
+        "sourceUrl": _row_get(row, "source_url"),
+        "sourceName": _row_get(row, "source_name"),
         "columnist": columnist,
     }
 
@@ -446,157 +472,80 @@ def get_column(column_id: str) -> dict | None:
         return _column_to_frontend(row, _columnist_to_frontend(crow) if crow else None)
 
 
-def seed_columnists() -> None:
-    """Başlangıçta (boşsa) mock köşe yazarlarını ve birkaç yazıyı ekler."""
+def upsert_columnist(slug, name, title, page="", avatar=None, bio=None):
+    """Yazarı slug'a göre ekler ya da günceller; id döndürür."""
+    iso = datetime.now(timezone.utc).isoformat()
     with _connect() as conn:
-        count = conn.execute("SELECT COUNT(*) AS n FROM columnists").fetchone()["n"]
-        if count:
-            return  # Zaten dolu; tekrar ekleme.
-
-    now = datetime.now(timezone.utc)
-    date_str = now.strftime("%d %B %Y")
-    iso = now.isoformat()
-
-    columnists = [
-        {
-            "slug": "elif-deniz",
-            "name": "Elif Deniz",
-            "title": "Teknoloji & Toplum",
-            "bio": "Yapay zekânın gündelik hayatı nasıl yeniden kurduğunu yazıyor. "
-            "Eski bir yazılım mühendisi; teknoloji ile etik arasındaki gerilim hattında dolaşıyor.",
-            "avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=256&q=80",
-            "columns": [
-                {
-                    "kicker": "Yapay Zekâ",
-                    "title": "Makineler Düşünmüyor; Biz Onlara Anlam Yüklüyoruz",
-                    "dek": "Büyük dil modellerini 'akıllı' sanmak, aynanın içindeki kendi yansımamıza hayran olmaktır.",
-                    "body": [
-                        "Bir sistemin akıcı cümleler kurması, onu düşünen bir özne yapmaz. Yapay zekânın bugünkü hâli, devasa bir örüntü tahmin makinesidir; bizim ona yüklediğimiz anlamı bize geri yansıtır.",
-                        "Yine de bu yansımayı küçümsemek yanlış olur. İnsanların çoğu kararını da sezgi ve örüntü üzerinden verir. Asıl mesele, makinenin 'düşünüp düşünmediği' değil; onu hangi sorumlulukla kullandığımızdır.",
-                        "Teknolojiyi büyüleyici kılan, onun bize kendimizi gösteren bir ayna oluşudur. Tehlike de buradadır: Aynaya çok uzun bakan, dışarıdaki dünyayı unutur.",
-                        "Önümüzdeki on yılda asıl tartışma, modellerin ne kadar 'zeki' olduğu değil; toplumun bu araçlar üzerindeki denetimini nasıl koruyacağı olacak.",
-                    ],
-                    "read_time": "4 dk okuma",
-                    "image": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
-                },
-                {
-                    "kicker": "Mahremiyet",
-                    "title": "Veri Senin Gölgen: Onu Kimseye Ödünç Verme",
-                    "dek": "Ücretsiz olan her hizmetin bedelini, çoğu zaman farkında olmadan kendi mahremiyetimizle ödüyoruz.",
-                    "body": [
-                        "Dijital hayatta hiçbir şey gerçekten ücretsiz değildir. Bedelini ödediğimiz para değilse, büyük olasılıkla bedeli kendi verimizdir.",
-                        "Veri, kişinin gölgesi gibidir: Nereye gittiğini, neye baktığını, neyden çekindiğini taşır. Bu gölgeyi pazarlayan bir ekonomi, mahremiyeti bir lükse çevirir.",
-                        "Çözüm, teknolojiden kaçmak değil; kullanıcının kendi verisi üzerinde söz sahibi olduğu bir mimariyi talep etmektir.",
-                    ],
-                    "read_time": "3 dk okuma",
-                    "image": "https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80",
-                },
-            ],
-        },
-        {
-            "slug": "mert-kayhan",
-            "name": "Mert Kayhan",
-            "title": "Ekonomi & Piyasalar",
-            "bio": "Piyasaların gürültüsü altındaki sinyali arıyor. Makroekonomi, faiz ve "
-            "küresel ticaret üzerine soğukkanlı analizler yazıyor.",
-            "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80",
-            "columns": [
-                {
-                    "kicker": "Para Politikası",
-                    "title": "Faiz Kararlarını Okumak: Sözcüklerin Ardındaki Niyet",
-                    "dek": "Merkez bankalarının asıl mesajı genelde rakamlarda değil, cümlelerin tonundadır.",
-                    "body": [
-                        "Piyasalar yalnızca faiz oranını değil, kararı anlatan metnin kelimelerini de fiyatlar. Bir 'temkinli' sözcüğü, çoğu zaman çeyrek puanlık bir adımdan daha güçlü sinyal taşır.",
-                        "Yatırımcının işi, bu dilin ardındaki niyeti ölçmektir. Enflasyon yavaşlasa bile bankalar erken gevşemekten kaçınır; çünkü güvenilirlik, bir kez kaybedildiğinde pahalıya geri alınır.",
-                        "Uzun vadede kazanan, manşete değil; eğilime bakandır.",
-                    ],
-                    "read_time": "5 dk okuma",
-                    "image": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80",
-                },
-            ],
-        },
-        {
-            "slug": "selin-aydin",
-            "name": "Selin Aydın",
-            "title": "Kültür & Edebiyat",
-            "bio": "Kitapların, sahnelerin ve kentin kültürel nabzının peşinde. "
-            "Edebiyatın gündelik hayata sızan o sessiz gücünü anlatıyor.",
-            "avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=256&q=80",
-            "columns": [
-                {
-                    "kicker": "Edebiyat",
-                    "title": "Yavaş Okumanın İncelikli Bir İsyan Oluşu",
-                    "dek": "Her şeyin hızlandığı bir çağda bir romanı ağırdan almak, sessiz bir başkaldırıdır.",
-                    "body": [
-                        "Bildirimlerin sürekli böldüğü bir dikkat ekonomisinde, bir kitabı baştan sona, acele etmeden okumak neredeyse politik bir tavra dönüşüyor.",
-                        "Yavaş okumak, metnin değil okurun da derinleşmesidir. Cümlenin içinde oyalanmak, hızını kaybetmiş gibi görünse de aslında düşünceyi geri kazanmaktır.",
-                        "Edebiyat, bize zamanı yeniden nasıl sahipleneceğimizi öğretir. Belki de en radikal eylem, telefonu bırakıp bir sayfayı ikinci kez okumaktır.",
-                    ],
-                    "read_time": "3 dk okuma",
-                    "image": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=1200&q=80",
-                },
-            ],
-        },
-        {
-            "slug": "deniz-toprak",
-            "name": "Deniz Toprak",
-            "title": "Spor",
-            "bio": "Sahanın içindeki taktikten soyunma odasının psikolojisine, "
-            "sporu bir anlatı olarak okuyor.",
-            "avatar": "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=256&q=80",
-            "columns": [
-                {
-                    "kicker": "Futbol",
-                    "title": "Modern Futbolda Kazanan Takım Değil, Sistem",
-                    "dek": "Yıldız oyuncu çağı kapanıyor; artık şampiyonluğu kolektif bir fikir belirliyor.",
-                    "body": [
-                        "Bugün şampiyon olan takımlar, bir oyuncunun parıltısına değil; sahanın her metrekaresini kapsayan bir oyun fikrine yaslanıyor.",
-                        "Pres, top kullanımı ve geçiş hızları artık sezgiyle değil, veriyle yönetiliyor. Yine de futbolun ruhu, bu hesapların arasından sıyrılan o öngörülemez ana dair.",
-                        "Sistem kazandırır; ama insanı tribüne bağlayan, o sistemin çatlağından doğan beklenmedik kahramanlıktır.",
-                    ],
-                    "read_time": "4 dk okuma",
-                    "image": "https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&w=1200&q=80",
-                },
-            ],
-        },
-    ]
-
-    with _connect() as conn:
-        for c in columnists:
-            cur = conn.execute(
-                """
-                INSERT INTO columnists (slug, name, title, bio, avatar, created_at)
-                VALUES (?,?,?,?,?,?)
-                """,
-                (c["slug"], c["name"], c["title"], c["bio"], c["avatar"], iso),
+        row = conn.execute(
+            "SELECT id FROM columnists WHERE slug = ?", (slug,)
+        ).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE columnists SET name=?, title=?, page=?, avatar=?, "
+                "bio=COALESCE(?, bio) WHERE slug=?",
+                (name, title, page, avatar, bio, slug),
             )
-            columnist_id = cur.lastrowid
-            for col in c["columns"]:
-                col_id = _slugify(col["title"], c["slug"] + col["title"])
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO columns
-                    (id, columnist_id, kicker, title, dek, body_json, read_time, date, image, created_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?)
-                    """,
-                    (
-                        col_id,
-                        columnist_id,
-                        col["kicker"],
-                        col["title"],
-                        col["dek"],
-                        json.dumps(col["body"], ensure_ascii=False),
-                        col["read_time"],
-                        date_str,
-                        col["image"],
-                        iso,
-                    ),
-                )
+            return row["id"]
+        cur = conn.execute(
+            "INSERT INTO columnists (slug, name, title, bio, avatar, page, created_at) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (slug, name, title, bio, avatar, page, iso),
+        )
+        return cur.lastrowid
+
+
+def replace_columns(columnist_id, columns):
+    """Yazarın yazılarını siler ve verilen (gerçek) yazılarla değiştirir."""
+    date_str = datetime.now(timezone.utc).strftime("%d %B %Y")
+    base = datetime.now(timezone.utc)
+    with _connect() as conn:
+        conn.execute("DELETE FROM columns WHERE columnist_id = ?", (columnist_id,))
+        for i, col in enumerate(columns):
+            col_id = _slugify(
+                col.get("title", ""),
+                str(columnist_id) + col.get("source_url", "") + col.get("title", ""),
+            )
+            # En yeni yazı en üstte görünsün diye created_at azalan sırada.
+            ts = (base - timedelta(seconds=i)).isoformat()
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO columns
+                (id, columnist_id, kicker, title, dek, body_json, read_time, date,
+                 image, source_url, source_name, created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    col_id,
+                    columnist_id,
+                    col.get("kicker", "Görüş"),
+                    col.get("title", ""),
+                    col.get("dek", ""),
+                    json.dumps(col.get("body", []), ensure_ascii=False),
+                    col.get("read_time", ""),
+                    col.get("date", date_str),
+                    col.get("image"),
+                    col.get("source_url"),
+                    col.get("source_name"),
+                    ts,
+                ),
+            )
+
+
+def save_columnists(data):
+    """Yazar listesini kaydeder. columns boşsa yalnızca üst bilgi güncellenir
+    (mevcut yazılar silinmez); doluysa yazılar gerçek verilerle değiştirilir."""
+    for c in data:
+        cid = upsert_columnist(
+            c["slug"], c["name"], c.get("title", ""), c.get("page", ""),
+            c.get("avatar"), c.get("bio"),
+        )
+        cols = c.get("columns") or []
+        if cols:
+            replace_columns(cid, cols)
 
 
 if __name__ == "__main__":
     init_db()
-    seed_columnists()
     print(f"Veritabanı hazır: {DB_PATH}")
     print(f"Kayıtlı makale sayısı: {len(get_all_articles())}")
     print(f"Köşe yazarı sayısı: {len(get_columnists())}")

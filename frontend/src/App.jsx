@@ -54,6 +54,8 @@ const SOURCE_GROUPS = {
     "Duvar", "Korkusuz", "Aydınlık", "Halk TV", "Tele1", "Dünya",
     "Independent TR", "Onedio", "Memurlar.net", "Internet Haber",
     "Gerçek Gündem", "Haber Global",
+    "Fanatik", "Fotomaç", "Sporx", "A Spor", "Ajansspor", "Fotospor",
+    "beIN Sports",
   ],
   Küresel: [
     "NYT", "CNN", "BBC News", "Google News", "The Guardian", "Fox News",
@@ -63,7 +65,8 @@ const SOURCE_GROUPS = {
     "Le Figaro", "Der Spiegel", "Die Welt", "El Mundo", "Corriere", "Repubblica",
     "Jerusalem Post", "Euronews", "Reuters", "MSN", "ABC", "Telegraph",
     "The Times", "Financial Times", "Daily Mail", "HuffPost", "Haaretz", "Bild",
-    "El País",
+    "El País", "ESPN", "BBC Sport", "Sky Sports", "Marca", "AS", "L'Équipe",
+    "Gazzetta", "The Athletic", "Goal", "Bleacher Report",
   ],
   "Edebiyat & Kültür": [
     "The New Yorker", "NY Review of Books", "The Paris Review",
@@ -84,7 +87,7 @@ const FOR_YOU = "Bana Özel"; // Giriş yapmış kullanıcıya özel akış etik
 const THEME_KEY = "singularity:theme";
 const PREFS_KEY = "singularity:prefs";
 const PREFS_VER_KEY = "singularity:prefs:v";
-const PREFS_VERSION = "3"; // Elit edebiyat & kültür kaynakları eklendi (göç tetikleyici).
+const PREFS_VERSION = "4"; // Spor kaynakları eklendi (göç tetikleyici).
 const TOKEN_KEY = "singularity:token";
 
 // Production'da Vercel/Render'da VITE_API_URL ile ezilir; yoksa yerel backend.
@@ -325,130 +328,220 @@ const MOCK_ARTICLES = [
       "Küçük alışkanlık değişikliklerinin bile zamanla uyku düzenine olumlu yansıyabileceği vurgulanıyor.",
     ],
   },
+  {
+    id: "derbi-sonucu",
+    category: "Spor",
+    kicker: "Süper Lig",
+    title: "Nefes Kesen Derbide Kazanan Son Dakikada Belli Oldu",
+    dek: "Karşılıklı gollerin yaşandığı mücadele, uzatma dakikalarındaki golle sonuçlandı.",
+    author: "Çeviri: Singularity AI Bot",
+    rewritten: false,
+    date: "21 Haziran 2026",
+    readTime: "4 dk okuma",
+    image: "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?auto=format&fit=crop&w=1200&q=80",
+    imageCaption: "Süper Lig — Spor masası derlemesi.",
+    imageCredit: "Fotoğraf: BBC Sport",
+    source: { name: "BBC Sport", url: "#" },
+    body: [
+      "İki ezeli rakip arasındaki derbi, sezonun en çok gol izlenen maçlarından biri oldu. Karşılaşma, uzatma dakikalarında bulunan golle sonuçlandı.",
+      "Teknik direktörler, maç sonu açıklamalarında oyuncularının mücadele gücünü öne çıkardı. İki takım da pozisyon üretmekte zorlanmadı.",
+      "Sonuç, şampiyonluk yarışındaki dengeleri yeniden kurdu; gözler bir sonraki haftanın kritik maçlarına çevrildi.",
+    ],
+  },
+  {
+    id: "sampiyonlar-ligi",
+    category: "Spor",
+    kicker: "Şampiyonlar Ligi",
+    title: "Avrupa Arenasında Türk Takımına Zorlu Kura",
+    dek: "Gruplardaki rakipler belli oldu; ilk maç deplasmanda oynanacak.",
+    author: "Çeviri: Singularity AI Bot",
+    rewritten: false,
+    date: "21 Haziran 2026",
+    readTime: "4 dk okuma",
+    image: "https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?auto=format&fit=crop&w=1200&q=80",
+    imageCaption: "Şampiyonlar Ligi — Spor masası derlemesi.",
+    imageCredit: "Fotoğraf: ESPN",
+    source: { name: "ESPN", url: "#" },
+    body: [
+      "Şampiyonlar Ligi grup kuraları çekildi ve temsilcimiz zorlu bir gruba düştü. İlk maç deplasmanda oynanacak.",
+      "Kulüp yönetimi, kura sonrası yaptığı açıklamada kadronun derinliğine güvendiklerini belirtti.",
+      "Taraftarlar, gruptan çıkış için iç saha maçlarının belirleyici olacağı görüşünde.",
+    ],
+  },
+  {
+    id: "transfer-rekoru",
+    category: "Spor",
+    kicker: "Transfer",
+    title: "Yaz Transfer Döneminde Rekor Bonservis Konuşuluyor",
+    dek: "Kulüpler arası görüşmelerin sürdüğü, anlaşmanın hafta sonuna kadar tamamlanabileceği belirtiliyor.",
+    author: "Yeniden Yazım: Singularity AI Bot",
+    rewritten: true,
+    date: "21 Haziran 2026",
+    readTime: "4 dk okuma",
+    image: "https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1200&q=80",
+    imageCaption: "Transfer — Spor masası derlemesi.",
+    imageCredit: "Fotoğraf: Fanatik",
+    source: { name: "Fanatik", url: "#" },
+    body: [
+      "Yaz transfer döneminin en çok konuşulan ismi için kulüpler arası görüşmeler sürüyor. Bonservis bedelinin rekor düzeyde olabileceği belirtiliyor.",
+      "Menajerlik kaynakları, oyuncunun kararını önümüzdeki günlerde vereceğini aktardı.",
+      "Spor ekonomistleri, artan bonservis bedellerinin lig gelirleriyle orantılı büyümediği uyarısında bulunuyor.",
+    ],
+  },
+  {
+    id: "secim-sonuc",
+    category: "Dünya",
+    kicker: "Seçimler",
+    title: "Avrupa'da Sandık: Merkez Partiler Oylarını Korudu",
+    dek: "Yüksek katılımın gözlendiği seçimde koalisyon görüşmelerinin uzaması bekleniyor.",
+    author: "Çeviri: Singularity AI Bot",
+    rewritten: false,
+    date: "21 Haziran 2026",
+    readTime: "4 dk okuma",
+    image: "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?auto=format&fit=crop&w=1200&q=80",
+    imageCaption: "Seçimler — Dünya masası derlemesi.",
+    imageCredit: "Fotoğraf: Reuters",
+    source: { name: "Reuters", url: "#" },
+    body: [
+      "Avrupa'daki genel seçimde merkez partiler oylarını büyük ölçüde korudu. Yüksek katılım dikkat çekti.",
+      "Sonuçların ardından koalisyon görüşmelerinin uzun sürebileceği değerlendiriliyor.",
+      "Analistler, sonucun ekonomik istikrar mesajı olarak okunabileceğini belirtiyor.",
+    ],
+  },
+  {
+    id: "kur-altin",
+    category: "Ekonomi",
+    kicker: "Piyasalar",
+    title: "Altın Yeni Zirvesini Test Ederken Kur Yatay Seyrediyor",
+    dek: "Güvenli liman talebi sürerken yatırımcılar merkez bankası adımlarını bekliyor.",
+    author: "Çeviri: Singularity AI Bot",
+    rewritten: false,
+    date: "21 Haziran 2026",
+    readTime: "4 dk okuma",
+    image: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1200&q=80",
+    imageCaption: "Piyasalar — Ekonomi masası derlemesi.",
+    imageCredit: "Fotoğraf: Bloomberg",
+    source: { name: "Bloomberg", url: "#" },
+    body: [
+      "Altın fiyatları, güvenli liman talebinin sürmesiyle yeni zirvesini test ediyor. Döviz kurlarında ise yatay bir seyir gözleniyor.",
+      "Analistler, jeopolitik risklerin değerli metale ilgiyi canlı tuttuğunu belirtiyor.",
+      "Piyasa katılımcıları, asıl yönün merkez bankalarının faiz mesajıyla belirleneceği görüşünde.",
+    ],
+  },
+  {
+    id: "yapay-zeka-asistan",
+    category: "Teknoloji",
+    kicker: "Yapay Zeka",
+    title: "Yeni Nesil Yapay Zeka Asistanları Ofis Yazılımlarına Giriyor",
+    dek: "Üreticiler, verimlilik vaadiyle gelen araçların mahremiyet sorularını da beraberinde getirdiğini kabul ediyor.",
+    author: "Çeviri: Singularity AI Bot",
+    rewritten: false,
+    date: "21 Haziran 2026",
+    readTime: "4 dk okuma",
+    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1200&q=80",
+    imageCaption: "Yapay Zeka — Teknoloji masası derlemesi.",
+    imageCredit: "Fotoğraf: The Guardian",
+    source: { name: "The Guardian", url: "#" },
+    body: [
+      "Ofis yazılımlarına entegre edilen yeni nesil yapay zeka asistanları, belge yazımından veri analizine kadar pek çok görevi üstleniyor.",
+      "Üreticiler, verimlilik artışının yanında veri mahremiyeti sorularının da gündeme geldiğini kabul ediyor.",
+      "Uzmanlar, kurumların bu araçları benimserken net veri politikaları oluşturması gerektiğini vurguluyor.",
+    ],
+  },
+  {
+    id: "egitim-reform",
+    category: "Gündem",
+    kicker: "Eğitim",
+    title: "Üniversite Sınavı Takviminde Güncelleme Açıklandı",
+    dek: "Adayların hazırlık sürecini etkileyecek değişikliklerin kademeli uygulanacağı bildirildi.",
+    author: "Çeviri: Singularity AI Bot",
+    rewritten: false,
+    date: "21 Haziran 2026",
+    readTime: "4 dk okuma",
+    image: "https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=1200&q=80",
+    imageCaption: "Eğitim — Gündem masası derlemesi.",
+    imageCredit: "Fotoğraf: NTV",
+    source: { name: "NTV", url: "#" },
+    body: [
+      "Üniversiteye giriş sınavının takvimine ilişkin güncelleme açıklandı. Değişikliklerin kademeli uygulanacağı belirtildi.",
+      "Eğitimciler, adayların hazırlık planını etkileyecek düzenlemelerin erken duyurulmasını olumlu buldu.",
+      "Yetkililer, sürecin şeffaf yürütüleceğini ve ayrıntıların kılavuzda yer alacağını bildirdi.",
+    ],
+  },
+  {
+    id: "saglikli-mutfak",
+    category: "Yaşam Tarzı",
+    kicker: "Beslenme",
+    title: "Akdeniz Mutfağı Yeniden Gözde: Uzmanlardan Mevsimsel Öneriler",
+    dek: "Diyetisyenler, işlenmiş gıdaların azaltılmasının uzun vadeli faydalarına dikkat çekiyor.",
+    author: "Çeviri: Singularity AI Bot",
+    rewritten: false,
+    date: "21 Haziran 2026",
+    readTime: "4 dk okuma",
+    image: "https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80",
+    imageCaption: "Beslenme — Yaşam Tarzı masası derlemesi.",
+    imageCredit: "Fotoğraf: Metro UK",
+    source: { name: "Metro UK", url: "#" },
+    body: [
+      "Akdeniz mutfağı, dengeli içeriği ve mevsimsel ürünlere dayanması nedeniyle yeniden gündemde. Diyetisyenler sade tarifleri öne çıkarıyor.",
+      "Uzmanlar, işlenmiş gıdaların azaltılmasının uzun vadeli sağlık faydaları olduğunu vurguluyor.",
+      "Mevsimsel ve yerel ürünlerin hem sağlık hem sürdürülebilirlik açısından tercih edilmesi öneriliyor.",
+    ],
+  },
+  {
+    id: "sergi-istanbul",
+    category: "Kültür Sanat",
+    kicker: "Sergi",
+    title: "Modern Sanat Müzesinde Büyük Retrospektif Kapılarını Açtı",
+    dek: "Sergi, sanatçının kırk yıllık üretimini ilk kez bir arada izleyiciyle buluşturuyor.",
+    author: "Çeviri: Singularity AI Bot",
+    rewritten: false,
+    date: "21 Haziran 2026",
+    readTime: "4 dk okuma",
+    image: "https://images.unsplash.com/photo-1507924538820-ede94a04019d?auto=format&fit=crop&w=1200&q=80",
+    imageCaption: "Sergi — Kültür Sanat masası derlemesi.",
+    imageCredit: "Fotoğraf: ARTnews",
+    source: { name: "ARTnews", url: "#" },
+    body: [
+      "Modern sanat müzesinde açılan retrospektif, sanatçının kırk yıla yayılan üretimini bir arada sunuyor. Sergi yoğun ilgi görüyor.",
+      "Küratörler, seçkinin sanatçının az bilinen dönemlerine de ışık tuttuğunu belirtiyor.",
+      "Sergiye eşlik eden söyleşi ve atölye programının önümüzdeki aylarda süreceği açıklandı.",
+    ],
+  },
+  {
+    id: "girisim-yatirim",
+    category: "İş",
+    kicker: "Girişim",
+    title: "Yerli Girişime Büyük Yatırım: Hedef Avrupa Pazarı",
+    dek: "Yatırımın, şirketin mühendislik kadrosunu genişletmesi ve uluslararasılaşması için kullanılacağı belirtiliyor.",
+    author: "Çeviri: Singularity AI Bot",
+    rewritten: false,
+    date: "21 Haziran 2026",
+    readTime: "4 dk okuma",
+    image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
+    imageCaption: "Girişim — İş masası derlemesi.",
+    imageCredit: "Fotoğraf: Axios",
+    source: { name: "Axios", url: "#" },
+    body: [
+      "Yerli bir teknoloji girişimi, büyüme turunda önemli bir yatırım aldı. Şirketin hedefinde Avrupa pazarı var.",
+      "Kurucular, kaynağın mühendislik kadrosunu genişletmek ve ürünü uluslararasılaştırmak için kullanılacağını açıkladı.",
+      "Yatırımcılar, bölgedeki girişim ekosisteminin olgunlaştığına dikkat çekiyor.",
+    ],
+  },
 ];
 
-/* Backend yoksa kullanılacak köşe yazarı demosu (DB seed'iyle birebir uyumlu). */
+/* Köşe yazarı demosu (backend yoksa). GERÇEK yazarlar — uydurma yazı içermez;
+   yazıları backend'den gelir, çevrimdışıyken yazar sayfasına link verilir. */
 const MOCK_COLUMNISTS = [
-  {
-    id: 1,
-    slug: "elif-deniz",
-    name: "Elif Deniz",
-    title: "Teknoloji & Toplum",
-    bio: "Yapay zekânın gündelik hayatı nasıl yeniden kurduğunu yazıyor. Eski bir yazılım mühendisi; teknoloji ile etik arasındaki gerilim hattında dolaşıyor.",
-    avatar:
-      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=256&q=80",
-    columns: [
-      {
-        id: "makineler-dusunmuyor",
-        kicker: "Yapay Zekâ",
-        title: "Makineler Düşünmüyor; Biz Onlara Anlam Yüklüyoruz",
-        dek: "Büyük dil modellerini 'akıllı' sanmak, aynanın içindeki kendi yansımamıza hayran olmaktır.",
-        readTime: "4 dk okuma",
-        date: "25 Haziran 2026",
-        image:
-          "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
-        body: [
-          "Bir sistemin akıcı cümleler kurması, onu düşünen bir özne yapmaz. Yapay zekânın bugünkü hâli, devasa bir örüntü tahmin makinesidir; bizim ona yüklediğimiz anlamı bize geri yansıtır.",
-          "Yine de bu yansımayı küçümsemek yanlış olur. İnsanların çoğu kararını da sezgi ve örüntü üzerinden verir. Asıl mesele, makinenin 'düşünüp düşünmediği' değil; onu hangi sorumlulukla kullandığımızdır.",
-          "Teknolojiyi büyüleyici kılan, onun bize kendimizi gösteren bir ayna oluşudur. Tehlike de buradadır: Aynaya çok uzun bakan, dışarıdaki dünyayı unutur.",
-          "Önümüzdeki on yılda asıl tartışma, modellerin ne kadar 'zeki' olduğu değil; toplumun bu araçlar üzerindeki denetimini nasıl koruyacağı olacak.",
-        ],
-      },
-      {
-        id: "veri-senin-golgen",
-        kicker: "Mahremiyet",
-        title: "Veri Senin Gölgen: Onu Kimseye Ödünç Verme",
-        dek: "Ücretsiz olan her hizmetin bedelini, çoğu zaman farkında olmadan kendi mahremiyetimizle ödüyoruz.",
-        readTime: "3 dk okuma",
-        date: "23 Haziran 2026",
-        image:
-          "https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80",
-        body: [
-          "Dijital hayatta hiçbir şey gerçekten ücretsiz değildir. Bedelini ödediğimiz para değilse, büyük olasılıkla bedeli kendi verimizdir.",
-          "Veri, kişinin gölgesi gibidir: Nereye gittiğini, neye baktığını, neyden çekindiğini taşır. Bu gölgeyi pazarlayan bir ekonomi, mahremiyeti bir lükse çevirir.",
-          "Çözüm, teknolojiden kaçmak değil; kullanıcının kendi verisi üzerinde söz sahibi olduğu bir mimariyi talep etmektir.",
-        ],
-      },
-    ],
-  },
-  {
-    id: 2,
-    slug: "mert-kayhan",
-    name: "Mert Kayhan",
-    title: "Ekonomi & Piyasalar",
-    bio: "Piyasaların gürültüsü altındaki sinyali arıyor. Makroekonomi, faiz ve küresel ticaret üzerine soğukkanlı analizler yazıyor.",
-    avatar:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80",
-    columns: [
-      {
-        id: "faiz-kararlarini-okumak",
-        kicker: "Para Politikası",
-        title: "Faiz Kararlarını Okumak: Sözcüklerin Ardındaki Niyet",
-        dek: "Merkez bankalarının asıl mesajı genelde rakamlarda değil, cümlelerin tonundadır.",
-        readTime: "5 dk okuma",
-        date: "24 Haziran 2026",
-        image:
-          "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80",
-        body: [
-          "Piyasalar yalnızca faiz oranını değil, kararı anlatan metnin kelimelerini de fiyatlar. Bir 'temkinli' sözcüğü, çoğu zaman çeyrek puanlık bir adımdan daha güçlü sinyal taşır.",
-          "Yatırımcının işi, bu dilin ardındaki niyeti ölçmektir. Enflasyon yavaşlasa bile bankalar erken gevşemekten kaçınır; çünkü güvenilirlik, bir kez kaybedildiğinde pahalıya geri alınır.",
-          "Uzun vadede kazanan, manşete değil; eğilime bakandır.",
-        ],
-      },
-    ],
-  },
-  {
-    id: 3,
-    slug: "selin-aydin",
-    name: "Selin Aydın",
-    title: "Kültür & Edebiyat",
-    bio: "Kitapların, sahnelerin ve kentin kültürel nabzının peşinde. Edebiyatın gündelik hayata sızan o sessiz gücünü anlatıyor.",
-    avatar:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=256&q=80",
-    columns: [
-      {
-        id: "yavas-okuma",
-        kicker: "Edebiyat",
-        title: "Yavaş Okumanın İncelikli Bir İsyan Oluşu",
-        dek: "Her şeyin hızlandığı bir çağda bir romanı ağırdan almak, sessiz bir başkaldırıdır.",
-        readTime: "3 dk okuma",
-        date: "23 Haziran 2026",
-        image:
-          "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=1200&q=80",
-        body: [
-          "Bildirimlerin sürekli böldüğü bir dikkat ekonomisinde, bir kitabı baştan sona, acele etmeden okumak neredeyse politik bir tavra dönüşüyor.",
-          "Yavaş okumak, metnin değil okurun da derinleşmesidir. Cümlenin içinde oyalanmak, hızını kaybetmiş gibi görünse de aslında düşünceyi geri kazanmaktır.",
-          "Edebiyat, bize zamanı yeniden nasıl sahipleneceğimizi öğretir. Belki de en radikal eylem, telefonu bırakıp bir sayfayı ikinci kez okumaktır.",
-        ],
-      },
-    ],
-  },
-  {
-    id: 4,
-    slug: "deniz-toprak",
-    name: "Deniz Toprak",
-    title: "Spor",
-    bio: "Sahanın içindeki taktikten soyunma odasının psikolojisine, sporu bir anlatı olarak okuyor.",
-    avatar:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=256&q=80",
-    columns: [
-      {
-        id: "kazanan-sistem",
-        kicker: "Futbol",
-        title: "Modern Futbolda Kazanan Takım Değil, Sistem",
-        dek: "Yıldız oyuncu çağı kapanıyor; artık şampiyonluğu kolektif bir fikir belirliyor.",
-        readTime: "4 dk okuma",
-        date: "22 Haziran 2026",
-        image:
-          "https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&w=1200&q=80",
-        body: [
-          "Bugün şampiyon olan takımlar, bir oyuncunun parıltısına değil; sahanın her metrekaresini kapsayan bir oyun fikrine yaslanıyor.",
-          "Pres, top kullanımı ve geçiş hızları artık sezgiyle değil, veriyle yönetiliyor. Yine de futbolun ruhu, bu hesapların arasından sıyrılan o öngörülemez ana dair.",
-          "Sistem kazandırır; ama insanı tribüne bağlayan, o sistemin çatlağından doğan beklenmedik kahramanlıktır.",
-        ],
-      },
-    ],
-  },
+  { slug: "marina-hyde", name: "Marina Hyde", title: "The Guardian · Köşe Yazarı", avatar: null, page: "https://www.theguardian.com/profile/marinahyde", columns: [] },
+  { slug: "george-monbiot", name: "George Monbiot", title: "The Guardian · Çevre & Politika", avatar: null, page: "https://www.theguardian.com/profile/georgemonbiot", columns: [] },
+  { slug: "owen-jones", name: "Owen Jones", title: "The Guardian · Politika", avatar: null, page: "https://www.theguardian.com/profile/owen-jones", columns: [] },
+  { slug: "polly-toynbee", name: "Polly Toynbee", title: "The Guardian · Politika", avatar: null, page: "https://www.theguardian.com/profile/pollytoynbee", columns: [] },
+  { slug: "jonathan-freedland", name: "Jonathan Freedland", title: "The Guardian · Köşe Yazarı", avatar: null, page: "https://www.theguardian.com/profile/jonathanfreedland", columns: [] },
+  { slug: "ahmet-hakan", name: "Ahmet Hakan", title: "Hürriyet · Köşe Yazarı", avatar: null, page: "https://www.hurriyet.com.tr/yazarlar/ahmet-hakan/", columns: [] },
+  { slug: "abdulkadir-selvi", name: "Abdulkadir Selvi", title: "Hürriyet · Köşe Yazarı", avatar: null, page: "https://www.hurriyet.com.tr/yazarlar/abdulkadir-selvi/", columns: [] },
+  { slug: "deniz-zeyrek", name: "Deniz Zeyrek", title: "Sözcü · Köşe Yazarı", avatar: null, page: "https://www.sozcu.com.tr/yazarlari/deniz-zeyrek/", columns: [] },
+  { slug: "mehmet-y-yilmaz", name: "Mehmet Y. Yılmaz", title: "Köşe Yazarı", avatar: null, page: "", columns: [] },
 ];
 
 /* --------------------------- YARDIMCILAR ---------------------------------- */
@@ -517,15 +610,20 @@ function normalizeArticle(a) {
   };
 }
 
-/* Akışı yeniden sıralar (manşet dahil). Yenilemenin gözle görülür olması için:
-   `lead` bayrağı sıfırlanır ki karıştırmadan sonra ilk haber yeni manşet olsun. */
-function reshuffle(list) {
-  const a = list.map((x) => ({ ...x, lead: false }));
+/* Bir diziyi (kopyasını) karıştırır — yenilemede gözle görülür değişim için. */
+function shuffleArr(list) {
+  const a = [...list];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+/* Akışı yeniden sıralar (manşet dahil). `lead` bayrağı sıfırlanır ki
+   karıştırmadan sonra ilk haber yeni manşet olsun. */
+function reshuffle(list) {
+  return shuffleArr(list.map((x) => ({ ...x, lead: false })));
 }
 
 /* Canlı API'den (varsa) tercihlere göre haberleri çeker. */
@@ -1688,31 +1786,45 @@ function ColumnistsPage({ columnists, onOpenColumn, goHome }) {
 
             <div>
               <p className="font-serif text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-                {c.bio}
+                {c.bio ||
+                  `${c.title} — en güncel köşe yazıları aşağıda derlendi; tamamını kaynağında okuyabilirsiniz.`}
               </p>
-              <ul className="mt-4 divide-y divide-neutral-200 border-t border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
-                {(c.columns || []).map((col) => (
-                  <li key={col.id}>
-                    <button
-                      onClick={() => onOpenColumn(c, col)}
-                      className="group flex w-full items-start gap-3 py-3 text-left"
-                    >
-                      <ChevronRight
-                        size={16}
-                        className="mt-1 shrink-0 text-neutral-400 transition group-hover:translate-x-0.5 group-hover:text-black dark:group-hover:text-white"
-                      />
-                      <span>
-                        <span className="font-display text-[1.1rem] font-bold leading-snug text-black transition group-hover:text-neutral-600 dark:text-white dark:group-hover:text-neutral-300">
-                          {col.title}
+              {(c.columns || []).length > 0 ? (
+                <ul className="mt-4 divide-y divide-neutral-200 border-t border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+                  {c.columns.map((col) => (
+                    <li key={col.id}>
+                      <button
+                        onClick={() => onOpenColumn(c, col)}
+                        className="group flex w-full items-start gap-3 py-3 text-left"
+                      >
+                        <ChevronRight
+                          size={16}
+                          className="mt-1 shrink-0 text-neutral-400 transition group-hover:translate-x-0.5 group-hover:text-black dark:group-hover:text-white"
+                        />
+                        <span>
+                          <span className="font-display text-[1.1rem] font-bold leading-snug text-black transition group-hover:text-neutral-600 dark:text-white dark:group-hover:text-neutral-300">
+                            {col.title}
+                          </span>
+                          <span className="mt-1 block font-serif text-[13px] italic leading-snug text-neutral-600 dark:text-neutral-400">
+                            {col.dek}
+                          </span>
                         </span>
-                        <span className="mt-1 block font-serif text-[13px] italic leading-snug text-neutral-600 dark:text-neutral-400">
-                          {col.dek}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                c.page && (
+                  <a
+                    href={c.page}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 inline-flex items-center gap-2 border border-neutral-300 px-4 py-2 font-sans text-[12px] font-bold uppercase tracking-[0.1em] text-neutral-700 transition hover:border-black hover:text-black dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-white dark:hover:text-white"
+                  >
+                    <ExternalLink size={14} /> Yazılarını oku
+                  </a>
+                )
+              )}
             </div>
           </section>
         ))}
@@ -1783,11 +1895,26 @@ function ColumnView({ columnist, column, onBack, goHome }) {
           </p>
         ))}
 
+        {/* Gerçek yazının tamamı kaynağında okunur (alıntı + atıf). */}
+        {column.sourceUrl && (
+          <div className="mt-8 flex justify-center">
+            <a
+              href={column.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group inline-flex items-center gap-2 border border-black bg-white px-4 py-2 font-sans text-[11px] font-bold uppercase tracking-[0.12em] text-black transition hover:bg-black hover:text-white dark:border-neutral-500 dark:bg-transparent dark:text-white dark:hover:bg-white dark:hover:text-black"
+            >
+              <ExternalLink size={13} />
+              Tüm yazıyı {column.sourceName || columnist.title} sitesinde oku
+            </a>
+          </div>
+        )}
+
         <div className="mt-10 flex items-center gap-3 border-t border-neutral-300 pt-5 dark:border-neutral-700">
           <Avatar src={columnist.avatar} name={columnist.name} size={44} />
           <p className="font-serif text-[14px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-            <strong className="text-black dark:text-white">{columnist.name}</strong>{" "}
-            — {columnist.bio}
+            <strong className="text-black dark:text-white">{columnist.name}</strong>
+            {columnist.bio ? ` — ${columnist.bio}` : ` · ${columnist.title}`}
           </p>
         </div>
       </div>
@@ -2181,13 +2308,14 @@ export default function App() {
         if (list.length) setArticles(reshuffle(list));
         try {
           const cols = await fetchColumnists();
-          if (cols.length) setColumnists(cols);
+          if (cols.length) setColumnists(shuffleArr(cols));
         } catch {
           /* yoksay */
         }
       } else {
-        // Demo: aynı veri döndüğü için akışı yeniden sırala (manşet de değişsin).
+        // Demo: aynı veri döndüğü için akışı + köşe yazarlarını yeniden sırala.
         setArticles(reshuffle(MOCK_ARTICLES.map(normalizeArticle)));
+        setColumnists((prev) => shuffleArr(prev));
       }
       setToast("Akış yenilendi.");
     } catch {

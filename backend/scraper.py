@@ -173,6 +173,21 @@ _REAL_FEEDS: list[dict[str, str]] = [
      "url": "https://www.jpost.com/rss/rssfeedsfrontpage.aspx"},
     {"name": "Euronews", "region": "Küresel", "category": "Dünya",
      "url": "https://www.euronews.com/rss"},
+    # ----- Dünya Sporu -----
+    {"name": "ESPN", "region": "Küresel", "category": "Spor",
+     "url": "https://www.espn.com/espn/rss/news"},
+    {"name": "BBC Sport", "region": "Küresel", "category": "Spor",
+     "url": "https://feeds.bbci.co.uk/sport/rss.xml"},
+    {"name": "Sky Sports", "region": "Küresel", "category": "Spor",
+     "url": "https://www.skysports.com/rss/12040"},
+    {"name": "Marca", "region": "Küresel", "category": "Spor",
+     "url": "https://e00-marca.uecdn.es/rss/portada.xml"},
+    {"name": "AS", "region": "Küresel", "category": "Spor",
+     "url": "https://as.com/rss/tags/ultimas_noticias.xml"},
+    {"name": "L'Équipe", "region": "Küresel", "category": "Spor",
+     "url": "https://www.lequipe.fr/rss/actu_rss.xml"},
+    {"name": "Gazzetta", "region": "Küresel", "category": "Spor",
+     "url": "https://www.gazzetta.it/rss/home.xml"},
     # ----- Elit Edebiyat & Kültür (yalnızca Edebiyat / Kültür Sanat) -----
     {"name": "The New Yorker", "region": "Kültür", "category": "Edebiyat",
      "url": "https://www.newyorker.com/feed/everything"},
@@ -263,6 +278,18 @@ _PROXY_SOURCES: list[tuple[str, str, str, str, str, str]] = [
     # ----- Elit Edebiyat & Kültür (yalnızca Edebiyat / Kültür Sanat) -----
     ("TLS", "Kültür", "Edebiyat", "the-tls.co.uk", "en-US", "US"),
     ("Artforum", "Kültür", "Kültür Sanat", "artforum.com", "en-US", "US"),
+    # ----- Dünya Sporu (proxy) -----
+    ("The Athletic", "Küresel", "Spor", "nytimes.com/athletic", "en-US", "US"),
+    ("Goal", "Küresel", "Spor", "goal.com", "en-US", "US"),
+    ("Bleacher Report", "Küresel", "Spor", "bleacherreport.com", "en-US", "US"),
+    # ----- Türkiye Sporu -----
+    ("Fanatik", "Türkiye", "Spor", "fanatik.com.tr", "tr", "TR"),
+    ("Fotomaç", "Türkiye", "Spor", "fotomac.com.tr", "tr", "TR"),
+    ("Sporx", "Türkiye", "Spor", "sporx.com", "tr", "TR"),
+    ("A Spor", "Türkiye", "Spor", "aspor.com.tr", "tr", "TR"),
+    ("Ajansspor", "Türkiye", "Spor", "ajansspor.com", "tr", "TR"),
+    ("Fotospor", "Türkiye", "Spor", "fotospor.com", "tr", "TR"),
+    ("beIN Sports", "Türkiye", "Spor", "beinsports.com.tr", "tr", "TR"),
     # ----- Türkiye -----
     ("Mynet", "Türkiye", "Gündem", "mynet.com", "tr", "TR"),
     ("Ensonhaber", "Türkiye", "Gündem", "ensonhaber.com", "tr", "TR"),
@@ -318,6 +345,93 @@ for _f in FEEDS:
     _bucket = SOURCE_NAMES.get(_f["region"], SOURCE_NAMES["Küresel"])
     if _f["name"] not in _bucket:
         _bucket.append(_f["name"])
+
+
+# --------------------------------------------------------------------------- #
+#  GERÇEK KÖŞE YAZARLARI — yazarların kendi yayımlanmış yazıları toplanır.
+#  (Uydurma metin ÜRETİLMEZ; yalnızca gerçek yazıların başlığı + özeti + linki.)
+#  Küresel: The Guardian yazar başına RSS (güvenilir, gerçek imza).
+#  Türkiye: Google News (yazar adı + gazete) ile gerçek köşe yazıları.
+# --------------------------------------------------------------------------- #
+COLUMNISTS: list[dict[str, str]] = [
+    {"slug": "marina-hyde", "name": "Marina Hyde", "title": "The Guardian · Köşe Yazarı",
+     "page": "https://www.theguardian.com/profile/marinahyde",
+     "url": "https://www.theguardian.com/profile/marinahyde/rss"},
+    {"slug": "george-monbiot", "name": "George Monbiot", "title": "The Guardian · Çevre & Politika",
+     "page": "https://www.theguardian.com/profile/georgemonbiot",
+     "url": "https://www.theguardian.com/profile/georgemonbiot/rss"},
+    {"slug": "owen-jones", "name": "Owen Jones", "title": "The Guardian · Politika",
+     "page": "https://www.theguardian.com/profile/owen-jones",
+     "url": "https://www.theguardian.com/profile/owen-jones/rss"},
+    {"slug": "polly-toynbee", "name": "Polly Toynbee", "title": "The Guardian · Politika",
+     "page": "https://www.theguardian.com/profile/pollytoynbee",
+     "url": "https://www.theguardian.com/profile/pollytoynbee/rss"},
+    {"slug": "jonathan-freedland", "name": "Jonathan Freedland", "title": "The Guardian · Köşe Yazarı",
+     "page": "https://www.theguardian.com/profile/jonathanfreedland",
+     "url": "https://www.theguardian.com/profile/jonathanfreedland/rss"},
+    {"slug": "ahmet-hakan", "name": "Ahmet Hakan", "title": "Hürriyet · Köşe Yazarı",
+     "page": "https://www.hurriyet.com.tr/yazarlar/ahmet-hakan/",
+     "url": _gnews_site("hurriyet.com.tr/yazarlar/ahmet-hakan", "tr", "TR")},
+    {"slug": "abdulkadir-selvi", "name": "Abdulkadir Selvi", "title": "Hürriyet · Köşe Yazarı",
+     "page": "https://www.hurriyet.com.tr/yazarlar/abdulkadir-selvi/",
+     "url": _gnews_site("hurriyet.com.tr/yazarlar/abdulkadir-selvi", "tr", "TR")},
+    {"slug": "deniz-zeyrek", "name": "Deniz Zeyrek", "title": "Sözcü · Köşe Yazarı",
+     "page": "https://www.sozcu.com.tr/yazarlari/deniz-zeyrek/",
+     "url": _gnews('"Deniz Zeyrek" köşe yazısı', "tr", "TR")},
+    {"slug": "mehmet-y-yilmaz", "name": "Mehmet Y. Yılmaz", "title": "Köşe Yazarı",
+     "page": "https://www.google.com/search?q=Mehmet+Y.+Y%C4%B1lmaz+k%C3%B6%C5%9Fe+yaz%C4%B1s%C4%B1",
+     "url": _gnews('"Mehmet Y. Yılmaz" köşe yazısı', "tr", "TR")},
+]
+
+
+def _estimate_read_minutes(text: str) -> int:
+    return max(1, round(len(text.split()) / 200))
+
+
+def scrape_columnist(columnist: dict[str, str]) -> dict:
+    """Tek bir yazarın GERÇEK son yazılarını çeker (özet + link; AI yok)."""
+    entries = fetch_feed_entries(
+        {"name": columnist["name"], "url": columnist["url"],
+         "region": "", "category": "Görüş"},
+        limit=4,
+    )
+    columns = []
+    for e in entries:
+        excerpt = (e.summary or e.title).strip()
+        columns.append(
+            {
+                "title": e.title,
+                "dek": excerpt[:220],
+                "body": [excerpt] if excerpt else [e.title],
+                "read_time": f"{_estimate_read_minutes(excerpt)} dk okuma",
+                "source_url": e.source_url,
+                "source_name": columnist["title"].split(" · ")[0],
+            }
+        )
+    return {
+        "slug": columnist["slug"],
+        "name": columnist["name"],
+        "title": columnist["title"],
+        "page": columnist.get("page", ""),
+        "avatar": None,  # Gerçek kişi: baş harf avatarı kullanılır (sahte foto yok).
+        "columns": columns,
+    }
+
+
+def scrape_columnists() -> list[dict]:
+    """Tüm köşe yazarlarının gerçek yazılarını PARALEL toplar."""
+    results: list[dict] = []
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = [executor.submit(scrape_columnist, c) for c in COLUMNISTS]
+        for fut in as_completed(futures):
+            try:
+                results.append(fut.result())
+            except Exception:  # noqa: BLE001
+                continue
+    # Kararlı sıra (config sırası) için slug'a göre yeniden diz.
+    order = {c["slug"]: i for i, c in enumerate(COLUMNISTS)}
+    results.sort(key=lambda r: order.get(r["slug"], 99))
+    return results
 
 
 # Türkçe tık tuzağı (clickbait) işaretleri — hibrit hatta "AI'a yolla" kararını verir.

@@ -28,9 +28,16 @@ import logging
 
 from dotenv import load_dotenv
 
-from scraper import fetch_all_feeds, enrich_many, is_clickbait, RawArticle, PER_FEED_DEFAULT
+from scraper import (
+    fetch_all_feeds,
+    enrich_many,
+    is_clickbait,
+    scrape_columnists,
+    RawArticle,
+    PER_FEED_DEFAULT,
+)
 from translator import translate_article
-from database import init_db, article_exists, save_article
+from database import init_db, article_exists, save_article, save_columnists
 
 load_dotenv()  # .env içindeki ANTHROPIC_API_KEY'i yükle.
 
@@ -167,6 +174,13 @@ def run(per_feed: int = PER_FEED_DEFAULT) -> None:
                 continue
             logger.info("Ham kaydedildi (AI'sız): %s (%s)", raw.title[:60], article_id)
             processed_raw += 1
+
+    # 5) Gerçek köşe yazarlarının gerçek yazılarını da tazele (AI yok).
+    try:
+        save_columnists(scrape_columnists())
+        logger.info("Köşe yazarları güncellendi.")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Köşe yazarı taraması başarısız: %s", exc)
 
     logger.info(
         "Hat tamamlandı — AI: %d, ham: %d, atlanan: %d, hatalı: %d (AI bütçesi: %d/%d)",
