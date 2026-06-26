@@ -10,20 +10,20 @@
    serif   : klasik gazete gövdesi yedeği
    sans    : meta veriler (yazar, tarih, kategori, kicker) */
 @theme {
-  --font-logo: "UnifrakturCook", "Playfair Display", Georgia, serif;
+  /* Masthead: WSJ amblemi gibi kalın, yüksek kontrastlı serif. */
+  --font-logo: "Playfair Display", Georgia, "Times New Roman", serif;
   --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
   --font-serif: Georgia, "Times New Roman", Times, serif;
   /* NYT arayüz sans'ı: Libre Franklin = NYT'nin Franklin Gothic'i. */
   --font-sans: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Masthead logosu: Wall Street Journal tarzı yoğun gotik (Textura) manşet —
-   UnifrakturCook 700, TÜM HARFLER BÜYÜK. Geri kalan arayüz NYT ile birebir. */
+/* Masthead logosu: Wall Street Journal amblemi gibi kalın, yüksek kontrastlı
+   serif. Karışık harf ("Singularity"); büyük-harfe zorlanmaz. */
 .font-logo {
   font-family: var(--font-logo);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  font-weight: 900;
+  letter-spacing: -0.005em;
 }
 
 html {

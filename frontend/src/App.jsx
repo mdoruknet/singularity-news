@@ -933,7 +933,7 @@ function Masthead({
             className="group mx-auto block flex-1 select-none"
             aria-label="Singularity ana sayfa"
           >
-            <h1 className="font-logo text-[2rem] leading-none text-black transition-opacity group-hover:opacity-80 dark:text-white sm:text-4xl md:text-6xl lg:text-7xl">
+            <h1 className="font-logo text-[2.5rem] leading-none text-black transition-opacity group-hover:opacity-80 dark:text-white sm:text-6xl md:text-7xl lg:text-8xl">
               Singularity
             </h1>
           </button>
