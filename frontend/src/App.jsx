@@ -517,6 +517,17 @@ function normalizeArticle(a) {
   };
 }
 
+/* Akışı yeniden sıralar (manşet dahil). Yenilemenin gözle görülür olması için:
+   `lead` bayrağı sıfırlanır ki karıştırmadan sonra ilk haber yeni manşet olsun. */
+function reshuffle(list) {
+  const a = list.map((x) => ({ ...x, lead: false }));
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 /* Canlı API'den (varsa) tercihlere göre haberleri çeker. */
 async function fetchArticles(prefs) {
   const params = new URLSearchParams();
@@ -2165,8 +2176,9 @@ export default function App() {
     setFeedRefreshing(true);
     try {
       if (liveRef.current) {
+        // En güncel haberleri çek, sonra gözle görülür tazelik için yeniden sırala.
         const list = await fetchArticles(prefsRef.current);
-        if (list.length) setArticles(list);
+        if (list.length) setArticles(reshuffle(list));
         try {
           const cols = await fetchColumnists();
           if (cols.length) setColumnists(cols);
@@ -2174,8 +2186,8 @@ export default function App() {
           /* yoksay */
         }
       } else {
-        // Demo: en az görsel bir geri bildirim için listeyi yeniden kur.
-        setArticles(MOCK_ARTICLES.map(normalizeArticle));
+        // Demo: aynı veri döndüğü için akışı yeniden sırala (manşet de değişsin).
+        setArticles(reshuffle(MOCK_ARTICLES.map(normalizeArticle)));
       }
       setToast("Akış yenilendi.");
     } catch {
