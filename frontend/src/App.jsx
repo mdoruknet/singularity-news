@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ExternalLink,
   ArrowLeft,
@@ -82,14 +82,16 @@ const ALL_SOURCES = [
   ...SOURCE_GROUPS["Edebiyat & Kültür"],
 ];
 
-const DEFAULT_PREFS = { categories: ALL_CATEGORIES, sources: ALL_SOURCES };
+// Kaynak tercihi "opt-out": hiddenSources = gizlenen kaynaklar. Boşsa hepsi
+// görünür. Böylece yeni eklenen yüzlerce kaynak otomatik görünür ve seçilebilir.
+const DEFAULT_PREFS = { categories: ALL_CATEGORIES, hiddenSources: [] };
 
 const FOR_YOU = "Bana Özel"; // Giriş yapmış kullanıcıya özel akış etiketi.
 
 const THEME_KEY = "singularity:theme";
 const PREFS_KEY = "singularity:prefs";
 const PREFS_VER_KEY = "singularity:prefs:v";
-const PREFS_VERSION = "5"; // Daha fazla spor kanalı eklendi (göç tetikleyici).
+const PREFS_VERSION = "6"; // Kaynak tercihi opt-out modeline geçti (göç tetikleyici).
 const TOKEN_KEY = "singularity:token";
 
 // Production'da Vercel/Render'da VITE_API_URL ile ezilir; yoksa yerel backend.
@@ -99,6 +101,7 @@ const REFRESH_URL = `${API_BASE}/api/refresh`;
 const STATUS_URL = `${API_BASE}/api/status`;
 const AUTH_URL = `${API_BASE}/api/auth`;
 const COLUMNISTS_URL = `${API_BASE}/api/columnists`;
+const SOURCES_URL = `${API_BASE}/api/sources`;
 
 const FALLBACK_IMG =
   "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80";
@@ -628,7 +631,8 @@ function reshuffle(list) {
   return shuffleArr(list.map((x) => ({ ...x, lead: false })));
 }
 
-/* Canlı API'den (varsa) tercihlere göre haberleri çeker. */
+/* Canlı API'den (varsa) tercihlere göre haberleri çeker. Kaynak filtresi
+   istemci tarafında (opt-out) yapılır; sunucudan geniş bir liste çekilir. */
 async function fetchArticles(prefs) {
   const params = new URLSearchParams();
   if (
@@ -637,11 +641,8 @@ async function fetchArticles(prefs) {
   ) {
     params.set("categories", prefs.categories.join(","));
   }
-  if (prefs?.sources?.length && prefs.sources.length < ALL_SOURCES.length) {
-    params.set("sources", prefs.sources.join(","));
-  }
-  const qs = params.toString();
-  const res = await fetch(qs ? `${API_URL}?${qs}` : API_URL);
+  params.set("limit", "120");
+  const res = await fetch(`${API_URL}?${params.toString()}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
   const list = Array.isArray(json) ? json : json?.data ?? [];
@@ -654,6 +655,14 @@ async function fetchColumnists() {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
   return Array.isArray(json) ? json : [];
+}
+
+/* Kaynak gruplarını (bölgeye göre) API'den çeker; filtreyi dinamik doldurur. */
+async function fetchSources() {
+  const res = await fetch(SOURCES_URL);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  return json && typeof json === "object" ? json : null;
 }
 
 /* -------- Auth API yardımcıları -------- */
@@ -685,15 +694,15 @@ async function apiSavePreferences(token, prefs) {
     },
     body: JSON.stringify({
       categories: prefs.categories,
-      sources: prefs.sources,
+      sources: [],
     }),
   }).catch(() => {});
 }
 
-/* Tercihler + aktif kategori filtresine göre görünürlük. */
+/* Tercihler + aktif kategori filtresine göre görünürlük (kaynak: opt-out). */
 function isVisible(a, prefs, activeCategory, user) {
-  const knownSrc = ALL_SOURCES.includes(a.source?.name);
-  const srcOK = !knownSrc || prefs.sources.includes(a.source.name);
+  const hidden = prefs.hiddenSources || [];
+  const srcOK = !hidden.includes(a.source?.name);
 
   if (activeCategory === FOR_YOU) {
     const cats = user?.preferences?.categories;
@@ -718,17 +727,15 @@ function loadPrefs() {
       const categories = Array.isArray(p.categories)
         ? p.categories.filter((c) => ALL_CATEGORIES.includes(c))
         : DEFAULT_PREFS.categories;
-      // Kaynak listesi v2'de 9 → 84 kaynağa büyüdü. Eski sürümden gelen
-      // kullanıcılar yeni kaynakları kaçırmasın diye göçte tümünü seçili getir.
-      const sources =
-        ver !== PREFS_VERSION
-          ? [...ALL_SOURCES]
-          : Array.isArray(p.sources)
-            ? p.sources.filter((s) => ALL_SOURCES.includes(s))
-            : DEFAULT_PREFS.sources;
+      // Opt-out modeli: eski sürümden (sources=seçili) gelenlerde gizli liste
+      // sıfırlanır → tüm kaynaklar (yenileri dahil) görünür kalır.
+      const hiddenSources =
+        ver !== PREFS_VERSION || !Array.isArray(p.hiddenSources)
+          ? []
+          : p.hiddenSources;
       return {
         categories: categories.length ? categories : DEFAULT_PREFS.categories,
-        sources,
+        hiddenSources,
       };
     }
   } catch {
@@ -1222,6 +1229,8 @@ function PreferencesDrawer({
   onSelectAll,
   onClear,
   user,
+  sourceGroups,
+  allSources,
 }) {
   return (
     <>
@@ -1262,7 +1271,7 @@ function PreferencesDrawer({
           {user && (
             <p className="mb-4 border border-amber-300 bg-amber-50 px-3 py-2 font-sans text-[12px] text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300">
               <Sparkles size={12} className="mr-1 inline" />
-              Seçimleriniz “Bana Özel” akışınıza kaydedilir.
+              Kategori seçimleriniz “Bana Özel” akışınıza kaydedilir.
             </p>
           )}
           <section className="mb-6">
@@ -1285,12 +1294,12 @@ function PreferencesDrawer({
                 Kaynaklar
               </p>
               <span className="font-sans text-[10px] text-neutral-400 dark:text-neutral-500">
-                {ALL_SOURCES.length} kaynak
+                {allSources.length} kaynak
               </span>
             </div>
-            {/* 90+ kaynak ekrana sığmaz: bölümü kendi içinde kaydırılabilir yap. */}
+            {/* Yüzlerce kaynak ekrana sığmaz: bölümü kendi içinde kaydırılabilir yap. */}
             <div className="custom-scrollbar max-h-[60vh] overflow-y-auto pr-1">
-              {Object.entries(SOURCE_GROUPS).map(([group, list]) => (
+              {Object.entries(sourceGroups).map(([group, list]) => (
                 <div key={group} className="mb-3">
                   <p className="sticky top-0 mt-2 mb-1 bg-white py-1 font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400 dark:bg-neutral-900 dark:text-neutral-500">
                     {group} · {list.length}
@@ -1299,8 +1308,8 @@ function PreferencesDrawer({
                     <CheckRow
                       key={s}
                       label={s}
-                      checked={prefs.sources.includes(s)}
-                      onChange={() => onToggle("sources", s)}
+                      checked={!(prefs.hiddenSources || []).includes(s)}
+                      onChange={() => onToggle("hiddenSources", s)}
                     />
                   ))}
                 </div>
@@ -2179,6 +2188,11 @@ export default function App() {
     MOCK_ARTICLES.map(normalizeArticle)
   );
   const [columnists, setColumnists] = useState(MOCK_COLUMNISTS);
+  const [sourceGroups, setSourceGroups] = useState(SOURCE_GROUPS);
+  const allSources = useMemo(
+    () => Object.values(sourceGroups).flat(),
+    [sourceGroups]
+  );
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -2252,6 +2266,13 @@ export default function App() {
       })
       .catch(() => {});
 
+    // Kaynak listesini API'den çek (filtreyi dinamik doldur; yoksa fallback).
+    fetchSources()
+      .then((groups) => {
+        if (!cancelled && groups) setSourceGroups(groups);
+      })
+      .catch(() => {});
+
     return () => {
       cancelled = true;
     };
@@ -2265,15 +2286,8 @@ export default function App() {
       .then((u) => {
         if (cancelled) return;
         setUser(u);
-        if (u?.preferences?.categories?.length || u?.preferences?.sources?.length) {
-          setPrefs({
-            categories: u.preferences.categories?.length
-              ? u.preferences.categories
-              : DEFAULT_PREFS.categories,
-            sources: u.preferences.sources?.length
-              ? u.preferences.sources
-              : DEFAULT_PREFS.sources,
-          });
+        if (u?.preferences?.categories?.length) {
+          setPrefs((p) => ({ ...p, categories: u.preferences.categories }));
         }
       })
       .catch(() => {
@@ -2489,15 +2503,21 @@ export default function App() {
 
   const togglePref = (key, value) =>
     setPrefs((p) => {
-      const set = new Set(p[key]);
+      const set = new Set(p[key] || []);
       if (set.has(value)) set.delete(value);
       else set.add(value);
-      const canonical = key === "categories" ? ALL_CATEGORIES : ALL_SOURCES;
-      return { ...p, [key]: canonical.filter((x) => set.has(x)) };
+      if (key === "categories") {
+        return { ...p, categories: ALL_CATEGORIES.filter((x) => set.has(x)) };
+      }
+      // hiddenSources: sırasız küme (gizlenen kaynaklar).
+      return { ...p, hiddenSources: [...set] };
     });
+  // "Tümünü Seç": tüm kategoriler + hiçbir kaynak gizli değil.
   const selectAllPrefs = () =>
-    setPrefs({ categories: [...ALL_CATEGORIES], sources: [...ALL_SOURCES] });
-  const clearPrefs = () => setPrefs({ categories: [], sources: [] });
+    setPrefs({ categories: [...ALL_CATEGORIES], hiddenSources: [] });
+  // "Temizle": kategori yok + tüm kaynaklar gizli.
+  const clearPrefs = () =>
+    setPrefs({ categories: [], hiddenSources: [...allSources] });
 
   // Tercih çekmecesi kapanınca, giriş yapılmışsa sunucuya kaydet.
   const closeDrawer = () => {
@@ -2522,18 +2542,8 @@ export default function App() {
     const data = await apiAuth("login", { email, password });
     persistToken(data.token);
     setUser(data.user);
-    if (
-      data.user?.preferences?.categories?.length ||
-      data.user?.preferences?.sources?.length
-    ) {
-      setPrefs({
-        categories: data.user.preferences.categories?.length
-          ? data.user.preferences.categories
-          : DEFAULT_PREFS.categories,
-        sources: data.user.preferences.sources?.length
-          ? data.user.preferences.sources
-          : DEFAULT_PREFS.sources,
-      });
+    if (data.user?.preferences?.categories?.length) {
+      setPrefs((p) => ({ ...p, categories: data.user.preferences.categories }));
     }
     setActiveCategory(FOR_YOU);
     setView("home");
@@ -2700,6 +2710,8 @@ export default function App() {
         onSelectAll={selectAllPrefs}
         onClear={clearPrefs}
         user={user}
+        sourceGroups={sourceGroups}
+        allSources={allSources}
       />
 
       <AuthModal

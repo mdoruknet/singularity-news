@@ -37,7 +37,7 @@ from database import (
     get_column,
     save_columnists,
 )
-from scraper import COLUMNISTS, scrape_columnists
+from scraper import COLUMNISTS, scrape_columnists, SOURCE_NAMES
 from auth import (
     hash_password,
     verify_password,
@@ -109,6 +109,12 @@ def list_articles(
         sources=_split_csv(sources),
         limit=limit,
     )
+
+
+@app.get("/api/sources")
+def list_sources() -> dict:
+    """Bölgeye göre gruplanmış kaynak adlarını döndürür (frontend filtresi için)."""
+    return SOURCE_NAMES
 
 
 @app.get("/api/articles/{article_id}")
