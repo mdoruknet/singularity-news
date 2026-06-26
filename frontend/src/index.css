@@ -10,19 +10,19 @@
    serif   : klasik gazete gövdesi yedeği
    sans    : meta veriler (yazar, tarih, kategori, kicker) */
 @theme {
-  --font-logo: "Chomsky", "UnifrakturCook", "Playfair Display", Georgia, serif;
+  --font-logo: "UnifrakturCook", "Playfair Display", Georgia, serif;
   --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
   --font-serif: Georgia, "Times New Roman", Times, serif;
   --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Masthead logosu: NYT amblem fontu "Chomsky" — klasik gotik gazete görünümü,
-   ama 'S' ve 'y' harfleri net okunur. Blackletter olduğundan kendi doğal
-   ağırlığında bırakılır (faux-bold gotik harfleri bozar). */
+/* Masthead logosu: Wall Street Journal tarzı yoğun gotik (Textura) manşet —
+   UnifrakturCook 700. Klasik gazete amblemi havası taşır, ama 'S' ve 'y'
+   harfleri net okunur. */
 .font-logo {
   font-family: var(--font-logo);
-  font-weight: 400;
-  letter-spacing: 0.005em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 html {
