@@ -13,10 +13,12 @@ Uç noktalar:
 from __future__ import annotations
 
 import os
+import re
 import uuid
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from database import (
     init_db,
@@ -25,6 +27,20 @@ from database import (
     create_job,
     update_job_status,
     get_job_status,
+    create_user,
+    get_user_auth,
+    update_user_preferences,
+    get_columnists,
+    get_columnist,
+    get_all_columns,
+    get_column,
+    seed_columnists,
+)
+from auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    get_current_user,
 )
 from pipeline import run as run_pipeline
 
@@ -54,6 +70,7 @@ app.add_middleware(
 @app.on_event("startup")
 def _startup() -> None:
     init_db()
+    seed_columnists()  # Köşe yazarları boşsa mock verilerle doldurulur.
 
 
 def _split_csv(value: str | None) -> list[str] | None:
@@ -116,3 +133,111 @@ def refresh(background_tasks: BackgroundTasks, per_feed: int = 4) -> dict:
 def job_status(job_id: str) -> dict:
     """Hangi worker'a düşerse düşsün, durumu diskten doğru okur."""
     return {"job_id": job_id, "status": get_job_status(job_id)}
+
+
+# --------------------------------------------------------------------------- #
+#  Kimlik doğrulama (Auth) — kayıt, giriş, profil, tercihler.
+# --------------------------------------------------------------------------- #
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class RegisterBody(BaseModel):
+    email: str
+    password: str = Field(min_length=6)
+    name: str = ""
+
+
+class LoginBody(BaseModel):
+    email: str
+    password: str
+
+
+class PreferencesBody(BaseModel):
+    categories: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+
+
+@app.post("/api/auth/register")
+def register(body: RegisterBody) -> dict:
+    """Yeni hesap oluşturur ve oturum token'ı döndürür."""
+    email = body.email.strip().lower()
+    if not _EMAIL_RE.match(email):
+        raise HTTPException(status_code=400, detail="Geçerli bir e-posta girin.")
+    if len(body.password) < 6:
+        raise HTTPException(status_code=400, detail="Parola en az 6 karakter olmalı.")
+    if get_user_auth(email) is not None:
+        raise HTTPException(status_code=409, detail="Bu e-posta zaten kayıtlı.")
+
+    user = create_user(
+        email=email,
+        password_hash=hash_password(body.password),
+        name=body.name,
+    )
+    token = create_access_token(user["id"])
+    return {"token": token, "user": user}
+
+
+@app.post("/api/auth/login")
+def login(body: LoginBody) -> dict:
+    """E-posta + parola ile giriş yapar ve oturum token'ı döndürür."""
+    record = get_user_auth(body.email)
+    if record is None or not verify_password(body.password, record["password_hash"]):
+        raise HTTPException(status_code=401, detail="E-posta veya parola hatalı.")
+    record.pop("password_hash", None)
+    token = create_access_token(record["id"])
+    return {"token": token, "user": record}
+
+
+@app.get("/api/auth/me")
+def me(user: dict = Depends(get_current_user)) -> dict:
+    """Geçerli token'a karşılık gelen kullanıcıyı döndürür."""
+    return user
+
+
+@app.put("/api/auth/preferences")
+def save_preferences(
+    body: PreferencesBody, user: dict = Depends(get_current_user)
+) -> dict:
+    """Giriş yapmış kullanıcının kişiselleştirme tercihlerini günceller."""
+    updated = update_user_preferences(
+        user["id"], {"categories": body.categories, "sources": body.sources}
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+    return updated
+
+
+# --------------------------------------------------------------------------- #
+#  Köşe yazarları (Opinion).
+# --------------------------------------------------------------------------- #
+
+
+@app.get("/api/columnists")
+def list_columnists() -> list[dict]:
+    """Tüm köşe yazarlarını döndürür."""
+    return get_columnists()
+
+
+@app.get("/api/columnists/{slug}")
+def read_columnist(slug: str) -> dict:
+    """Tek bir yazarı, yazılarıyla birlikte döndürür."""
+    columnist = get_columnist(slug)
+    if not columnist:
+        raise HTTPException(status_code=404, detail="Yazar bulunamadı")
+    return columnist
+
+
+@app.get("/api/columns")
+def list_columns(limit: int = 30) -> list[dict]:
+    """En yeni köşe yazılarını döndürür."""
+    return get_all_columns(limit=limit)
+
+
+@app.get("/api/columns/{column_id}")
+def read_column(column_id: str) -> dict:
+    """Tek bir köşe yazısını döndürür."""
+    column = get_column(column_id)
+    if not column:
+        raise HTTPException(status_code=404, detail="Köşe yazısı bulunamadı")
+    return column

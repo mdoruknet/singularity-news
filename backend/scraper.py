@@ -14,6 +14,7 @@ koşullarına saygı duyularak yapılmalıdır.
 
 from __future__ import annotations
 
+import re
 import time
 import logging
 from dataclasses import dataclass, field
@@ -25,10 +26,25 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger("singularity.scraper")
 
+# Sistemdeki kanonik kategori listesi (frontend ile birebir aynı sırada).
+CATEGORIES = [
+    "Gündem",
+    "Türkiye",
+    "Dünya",
+    "Ekonomi",
+    "Teknoloji",
+    "İş",
+    "Kültür Sanat",
+    "Edebiyat",
+    "Yaşam Tarzı",
+    "Spor",
+]
+
 # Genişletilmiş kaynak listesi: (kaynak, bölge, kategori, rss).
 # Türkçe kaynaklar yeniden-yazım (anti-clickbait), yabancılar çeviri hattına gider.
+# URL'ler örnek niteliğindedir; kaynakların güncel RSS adresleriyle değiştirilebilir.
 FEEDS: list[dict[str, str]] = [
-    # --- Küresel ---
+    # ----------------------------- Küresel -----------------------------------
     {"name": "Reuters", "region": "Küresel", "category": "Dünya",
      "url": "https://www.reutersagency.com/feed/?best-topics=world&post_type=best"},
     {"name": "Reuters", "region": "Küresel", "category": "Teknoloji",
@@ -37,15 +53,45 @@ FEEDS: list[dict[str, str]] = [
      "url": "https://feedx.net/rss/ap.xml"},
     {"name": "Bloomberg", "region": "Küresel", "category": "Ekonomi",
      "url": "https://feeds.bloomberg.com/markets/news.rss"},
-    # --- Türkiye ---
-    {"name": "BBC Türkçe", "region": "Türkiye", "category": "Gündem",
+    {"name": "The Guardian", "region": "Küresel", "category": "Dünya",
+     "url": "https://www.theguardian.com/world/rss"},
+    {"name": "The Guardian", "region": "Küresel", "category": "İş",
+     "url": "https://www.theguardian.com/uk/business/rss"},
+    {"name": "The Guardian", "region": "Küresel", "category": "Edebiyat",
+     "url": "https://www.theguardian.com/books/rss"},
+    {"name": "The Guardian", "region": "Küresel", "category": "Kültür Sanat",
+     "url": "https://www.theguardian.com/culture/rss"},
+    {"name": "The Guardian", "region": "Küresel", "category": "Yaşam Tarzı",
+     "url": "https://www.theguardian.com/lifeandstyle/rss"},
+    {"name": "The Guardian", "region": "Küresel", "category": "Spor",
+     "url": "https://www.theguardian.com/football/rss"},
+    {"name": "BBC", "region": "Küresel", "category": "Dünya",
+     "url": "https://feeds.bbci.co.uk/news/world/rss.xml"},
+    {"name": "BBC", "region": "Küresel", "category": "Teknoloji",
+     "url": "https://feeds.bbci.co.uk/news/technology/rss.xml"},
+    # ----------------------------- Türkiye -----------------------------------
+    {"name": "BBC Türkçe", "region": "Türkiye", "category": "Türkiye",
      "url": "https://feeds.bbci.co.uk/turkce/rss.xml"},
     {"name": "NTV", "region": "Türkiye", "category": "Gündem",
      "url": "https://www.ntv.com.tr/gundem.rss"},
+    {"name": "NTV", "region": "Türkiye", "category": "Türkiye",
+     "url": "https://www.ntv.com.tr/turkiye.rss"},
     {"name": "NTV", "region": "Türkiye", "category": "Ekonomi",
      "url": "https://www.ntv.com.tr/ekonomi.rss"},
+    {"name": "NTV", "region": "Türkiye", "category": "Teknoloji",
+     "url": "https://www.ntv.com.tr/teknoloji.rss"},
     {"name": "NTV", "region": "Türkiye", "category": "Spor",
      "url": "https://www.ntv.com.tr/spor.rss"},
+    {"name": "NTV", "region": "Türkiye", "category": "Kültür Sanat",
+     "url": "https://www.ntv.com.tr/sanat.rss"},
+    {"name": "NTV", "region": "Türkiye", "category": "Yaşam Tarzı",
+     "url": "https://www.ntv.com.tr/yasam.rss"},
+    {"name": "Hürriyet", "region": "Türkiye", "category": "Gündem",
+     "url": "https://www.hurriyet.com.tr/rss/gundem"},
+    {"name": "Hürriyet", "region": "Türkiye", "category": "İş",
+     "url": "https://www.hurriyet.com.tr/rss/ekonomi"},
+    {"name": "Hürriyet", "region": "Türkiye", "category": "Edebiyat",
+     "url": "https://www.hurriyet.com.tr/rss/kitap-sanat"},
     {"name": "Sözcü", "region": "Türkiye", "category": "Gündem",
      "url": "https://www.sozcu.com.tr/feed/"},
 ]
@@ -60,6 +106,36 @@ HEADERS = {
 
 REQUEST_TIMEOUT = 20
 POLITE_DELAY_SECONDS = 1.5  # Kaynaklara karşı kibarlık: istekler arası bekleme.
+
+# Türkçe tık tuzağı (clickbait) işaretleri — hibrit hatta "AI'a yolla" kararını verir.
+# Sadece bu kalıpları taşıyan başlıklar yeniden-yazım için Claude'a gönderilir;
+# rutin/temiz başlıklar AI kullanılmadan olduğu gibi kaydedilir (maliyet kalkanı).
+CLICKBAIT_MARKERS = [
+    "şok", "şoke", "bomba", "dumur", "çıldırt", "küplere bin", "ağzı açık",
+    "işte o an", "herkesi şaşırt", "gözler", "inanamad", "inanamayacak",
+    "bakın ne", "ne oldu biliyor", "son dakika", "flaş", "skandal", "olay",
+    "akılalmaz", "akıl almaz", "inanılmaz", "müthiş", "korkunç", "dehşet",
+    "ortalık karıştı", "gözünüze inanama", "tek hamlede", "az önce",
+    "duyan kulaklarına inanama", "herkes bunu konuşuyor", "çıldırttı",
+    "yıllardır yanlış", "meğer", "bir anda", "olanlar oldu",
+]
+
+_CAPS_RUN = re.compile(r"(?:\b[A-ZÇĞİÖŞÜ]{2,}\b[\s,!?-]*){3,}")
+
+
+def is_clickbait(title: str) -> bool:
+    """Başlık Türkçe tık tuzağı işaretleri taşıyorsa True döner (heuristik)."""
+    if not title:
+        return False
+    low = title.lower()
+    if any(marker in low for marker in CLICKBAIT_MARKERS):
+        return True
+    # Aşırı noktalama (şok dili) veya art arda BÜYÜK HARFLE bağırma.
+    if "!!!" in title or "?!" in title or title.count("!") >= 2:
+        return True
+    if _CAPS_RUN.search(title):
+        return True
+    return False
 
 
 @dataclass
@@ -76,6 +152,7 @@ class RawArticle:
     image_url: str | None = None
     published: str | None = None
     tags: list[str] = field(default_factory=list)
+    feed_rank: int = 0        # beslemedeki sıra (0 = besleme manşeti)
 
 
 def fetch_feed_entries(feed: dict[str, str], limit: int = 5) -> list[RawArticle]:
@@ -87,7 +164,7 @@ def fetch_feed_entries(feed: dict[str, str], limit: int = 5) -> list[RawArticle]
         logger.warning("Besleme uyarısı (%s): %s", feed["name"], parsed.bozo_exception)
 
     articles: list[RawArticle] = []
-    for entry in parsed.entries[:limit]:
+    for rank, entry in enumerate(parsed.entries[:limit]):
         summary = BeautifulSoup(entry.get("summary", ""), "html.parser").get_text(" ", strip=True)
         tags = [t.get("term", "") for t in entry.get("tags", [])] if entry.get("tags") else []
         articles.append(
@@ -100,6 +177,7 @@ def fetch_feed_entries(feed: dict[str, str], limit: int = 5) -> list[RawArticle]
                 summary=summary,
                 published=entry.get("published", entry.get("updated")),
                 tags=[t for t in tags if t],
+                feed_rank=rank,  # 0 = beslemenin en üstündeki manşet
             )
         )
     return articles

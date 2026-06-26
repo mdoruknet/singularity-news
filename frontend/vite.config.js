@@ -9,9 +9,9 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["vite.svg"],
+      includeAssets: ["icon-180.png", "icon-192.png", "icon-512.png"],
       manifest: {
-        name: "Singularity",
+        name: "Singularity — Küresel Haber Ajansı",
         short_name: "Singularity",
         description: "Kişiselleştirilebilir Küresel Haber Ajansı",
         theme_color: "#121212",
@@ -20,16 +20,22 @@ export default defineConfig({
         start_url: "/",
         icons: [
           {
-            src: "/vite.svg",
+            src: "/icon-192.png",
             sizes: "192x192",
-            type: "image/svg+xml",
+            type: "image/png",
             purpose: "any",
           },
           {
-            src: "/vite.svg",
+            src: "/icon-512.png",
             sizes: "512x512",
-            type: "image/svg+xml",
-            purpose: "any maskable",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
           },
         ],
       },

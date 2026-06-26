@@ -56,7 +56,8 @@ Her iki durumda da geçerli ortak kurallar:
 3. ATIF KÜLTÜRÜ. Kaynağı, intihal hissi vermeyen bir gazeteci diliyle metne yedir \
    (örn. "Reuters'ın aktardığına göre…", "BBC'nin ulaştığı bilgilere göre…").
 4. TARAFSIZLIK. Birinci tekil şahıs, reklam dili ve abartıdan kaçın.
-5. KATEGORİ şu listeden biri olmalı: Gündem, Dünya, Ekonomi, Teknoloji, Kültür, Spor.
+5. KATEGORİ şu listeden TAM OLARAK biri olmalı: Gündem, Türkiye, Dünya, \
+Ekonomi, Teknoloji, İş, Kültür Sanat, Edebiyat, Yaşam Tarzı, Spor.
 
 Bir "manşet" (title), bir "spot" (dek), kategori, küçük bir üst etiket "kicker", \
 4-6 paragraflık gövde, tahmini okuma süresi, kapak görseli için kısa bir alt yazı \
@@ -70,7 +71,7 @@ class TranslatedArticle(BaseModel):
 
     title: str = Field(description="Türkçe manşet (clickbait olmayan, gazete üslubu)")
     dek: str = Field(description="Tek-iki cümlelik Türkçe spot/özet")
-    category: str = Field(description="Modeller | Donanım | Politika | Araştırma | Ekonomi | Ekosistem | Görüş")
+    category: str = Field(description="Gündem | Türkiye | Dünya | Ekonomi | Teknoloji | İş | Kültür Sanat | Edebiyat | Yaşam Tarzı | Spor")
     kicker: str = Field(description="Kısa üst etiket, örn. 'Yapay Genel Zekâ'")
     body: list[str] = Field(description="4-6 paragraflık Türkçe makale gövdesi")
     read_time_minutes: int = Field(description="Tahmini okuma süresi (dakika)")

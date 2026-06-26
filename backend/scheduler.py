@@ -25,8 +25,10 @@ load_dotenv()  # .env içindeki ANTHROPIC_API_KEY'i yükle.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("singularity.scheduler")
 
-INTERVAL_HOURS = 2  # Her 2 saatte bir tara.
-PER_FEED = 3        # Kaynak başına haber sayısı.
+# Sık güncelleme: artık her 10 dakikada bir taranır. Maliyet, pipeline'daki
+# hibrit karar katmanı + AI_BUDGET ile (saatlik değil) tur başına sınırlanır.
+INTERVAL_MINUTES = 10  # Her 10 dakikada bir tara.
+PER_FEED = 3           # Kaynak başına haber sayısı.
 
 
 def job() -> None:
@@ -46,13 +48,13 @@ def main() -> None:
     scheduler.add_job(
         job,
         trigger="interval",
-        hours=INTERVAL_HOURS,
+        minutes=INTERVAL_MINUTES,
         id="singularity-pipeline",
         max_instances=1,  # üst üste binmeyi engelle
         coalesce=True,    # kaçırılan tetiklemeleri tek seferde topla
     )
 
-    logger.info("🗞️  Scheduler başladı — her %d saatte bir çalışacak.", INTERVAL_HOURS)
+    logger.info("🗞️  Scheduler başladı — her %d dakikada bir çalışacak.", INTERVAL_MINUTES)
     job()  # Açılışta hemen bir kez çalıştır (boş veritabanını doldurmak için).
 
     try:

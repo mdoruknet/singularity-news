@@ -5,15 +5,24 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ----- Tipografi sistemi (NYT mantığı) -----
-   blackletter : logo (gotik)
-   display     : manşetler ve gövde metni (tırnaklı / serif)
-   serif       : klasik gazete gövdesi yedeği
-   sans        : meta veriler (yazar, tarih, kategori, kicker) */
+   logo    : masthead — net okunabilen, ağırbaşlı serif (Playfair Display)
+   display : manşetler ve gövde metni (tırnaklı / serif)
+   serif   : klasik gazete gövdesi yedeği
+   sans    : meta veriler (yazar, tarih, kategori, kicker) */
 @theme {
-  --font-blackletter: "UnifrakturMaguntia", "Playfair Display", serif;
+  --font-logo: "Playfair Display", Georgia, "Times New Roman", serif;
   --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
   --font-serif: Georgia, "Times New Roman", Times, serif;
   --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Masthead logosu: gotik (UnifrakturMaguntia) yerine net okunan ağır serif.
+   'S' ve 'y' harfleri artık tam okunur; NYT/klasik gazete ağırlığı korunur. */
+.font-logo {
+  font-family: var(--font-logo);
+  font-weight: 900;
+  letter-spacing: -0.012em;
+  font-feature-settings: "liga" 1, "dlig" 1;
 }
 
 html {
@@ -100,4 +109,43 @@ body {
 }
 .toast-in {
   animation: toast-up 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Mobil çentik (notch) güvenli alanı — en üstteki şerit için. */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Canlı bilgi şeridi (Live Ticker) — kayan maç sonuçları marquee'si */
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.ticker-marquee {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: ticker-scroll 38s linear infinite;
+}
+.ticker-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Modal giriş animasyonu (Giriş/Kayıt) */
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.modal-pop {
+  animation: modal-pop 0.24s cubic-bezier(0.2, 0.7, 0.2, 1);
 }

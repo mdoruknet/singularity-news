@@ -13,53 +13,66 @@ import {
   Moon,
   X,
   SlidersHorizontal,
+  User,
+  LogOut,
+  TrendingUp,
+  TrendingDown,
+  Feather,
+  ChevronRight,
+  Sparkles,
 } from "lucide-react";
 
 /* ============================================================================
-   SINGULARITY — Kişiselleştirilebilir Küresel Haber Ajansı
+   SINGULARITY V2 — Kişiselleştirilebilir Küresel Haber Ajansı
    ----------------------------------------------------------------------------
-   The New York Times'ın klasik editoryal tasarım dilini birebir taklit eden,
-   karanlık mod ve kişiselleştirme (kategori + kaynak filtresi) destekli tek
-   dosyalık React prototipi. Tüm haberler, arka plandaki anti-clickbait LLM
-   motorunun ürettiği ağırbaşlı, Ters Piramit kuralına uygun metinleri simüle
-   eder: yabancı kaynaklar çevrilir, yerel tık tuzakları yeniden yazılır.
+   The New York Times'ın klasik editoryal tasarım dilini taklit eden, karanlık
+   mod, kişiselleştirme, kullanıcı hesapları (JWT), köşe yazarları (Opinion) ve
+   canlı bilgi şeridi (Live Ticker) destekli tek dosyalık React uygulaması.
+   Backend yoksa yerleşik demo içerikle çalışır.
    ========================================================================== */
 
 /* ----------------------------- SABİTLER ----------------------------------- */
 
 const ALL_CATEGORIES = [
   "Gündem",
+  "Türkiye",
   "Dünya",
   "Ekonomi",
   "Teknoloji",
-  "Kültür",
+  "İş",
+  "Kültür Sanat",
+  "Edebiyat",
+  "Yaşam Tarzı",
   "Spor",
 ];
 
 const SOURCE_GROUPS = {
-  Türkiye: ["NTV", "Sözcü", "BBC Türkçe"],
-  Küresel: ["Reuters", "AP", "Bloomberg"],
+  Türkiye: ["NTV", "Hürriyet", "Sözcü", "BBC Türkçe"],
+  Küresel: ["Reuters", "AP", "Bloomberg", "The Guardian", "BBC"],
 };
 const ALL_SOURCES = [...SOURCE_GROUPS.Türkiye, ...SOURCE_GROUPS.Küresel];
 
 const DEFAULT_PREFS = { categories: ALL_CATEGORIES, sources: ALL_SOURCES };
 
+const FOR_YOU = "Bana Özel"; // Giriş yapmış kullanıcıya özel akış etiketi.
+
 const THEME_KEY = "singularity:theme";
 const PREFS_KEY = "singularity:prefs";
+const TOKEN_KEY = "singularity:token";
 
-// Production'da Vercel'de VITE_API_URL ile ezilir; yoksa yerel backend varsayılır.
+// Production'da Vercel/Render'da VITE_API_URL ile ezilir; yoksa yerel backend.
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URL = `${API_BASE}/api/articles`;
 const REFRESH_URL = `${API_BASE}/api/refresh`;
 const STATUS_URL = `${API_BASE}/api/status`;
+const AUTH_URL = `${API_BASE}/api/auth`;
+const COLUMNISTS_URL = `${API_BASE}/api/columnists`;
 
 const FALLBACK_IMG =
   "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80";
 
 /* ----------------------------- MOCK VERİ ---------------------------------- */
-/* Backend'deki çeviri/yeniden-yazım hattının üreteceği JSON'un simülasyonu.
-   Farklı kategori ve kaynaklardan, tık tuzağından arındırılmış ağırbaşlı
-   editoryal metinler. */
+/* Backend'deki çeviri/yeniden-yazım hattının üreteceği JSON'un simülasyonu. */
 
 const MOCK_ARTICLES = [
   {
@@ -90,7 +103,7 @@ const MOCK_ARTICLES = [
   },
   {
     id: "kentsel-donusum",
-    category: "Gündem",
+    category: "Türkiye",
     kicker: "Kentsel Politika",
     title:
       "Kentsel Dönüşümde Yeni Yönetmelik: Riskli Yapılar İçin Süreç Yeniden Düzenlendi",
@@ -166,7 +179,7 @@ const MOCK_ARTICLES = [
   },
   {
     id: "anadolu-kazi",
-    category: "Kültür",
+    category: "Kültür Sanat",
     kicker: "Arkeoloji",
     title:
       "Anadolu'daki Kazılarda Antik Kente Ait Yeni Bir Bölüm Gün Yüzüne Çıktı",
@@ -215,29 +228,198 @@ const MOCK_ARTICLES = [
     ],
   },
   {
-    id: "mufredat-guncelleme",
-    category: "Gündem",
-    kicker: "Eğitim",
-    title: "Okullarda Yeni Müfredat: Değişiklikler ve Uygulama Takvimi Belli Oldu",
-    dek: "Güncellenen programın kademeli olarak devreye alınacağı, önceliğin temel becerilere verileceği bildirildi.",
-    originalTitle:
-      "Velileri ÇILDIRTAN müfredat değişikliği! O dersler kalkıyor mu? İşte şok eden detaylar...",
-    author: "Yeniden Yazım: Singularity AI Bot",
-    rewritten: true,
-    desk: "Ankara",
+    id: "borsa-sirket",
+    category: "İş",
+    kicker: "Şirketler",
+    title: "Teknoloji Şirketlerinden Yeni Yatırım Dalgası: İstihdam Hedefleri Büyüyor",
+    dek: "Sektör temsilcileri, nitelikli iş gücü ihtiyacının önümüzdeki dönemde belirleyici olacağını söylüyor.",
+    author: "Çeviri: Singularity AI Bot",
+    rewritten: false,
+    desk: "İstanbul",
+    date: "22 Haziran 2026",
+    readTime: "5 dk okuma",
+    image:
+      "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=1200&q=80",
+    imageCaption:
+      "Şirketler, büyüme planlarında yapay zeka ve veri yetkinliklerini merkeze alıyor.",
+    imageCredit: "Fotoğraf: The Guardian",
+    source: { name: "The Guardian", url: "https://www.theguardian.com" },
+    body: [
+      "Teknoloji sektöründeki şirketler, yeni bir yatırım ve istihdam dalgasının eşiğinde olduklarını açıkladı. Büyüme planlarının merkezinde, yapay zeka ve veri analitiği alanlarındaki nitelikli iş gücü ihtiyacı yer alıyor.",
+      "Sektör temsilcileri, yatırımların yalnızca yeni ürünlere değil; aynı zamanda mevcut çalışanların yeniden becerilendirilmesine (reskilling) ayrılacağını vurguluyor.",
+      "İnsan kaynakları uzmanları, önümüzdeki dönemde rekabetin ürün kadar yetenek üzerinden de yaşanacağını; şirketlerin esnek çalışma modelleriyle nitelikli profilleri çekmeye çalışacağını belirtiyor.",
+    ],
+  },
+  {
+    id: "roman-odul",
+    category: "Edebiyat",
+    kicker: "Ödüller",
+    title: "Yılın Roman Ödülü Sahibini Buldu: Jüriden 'Sessiz Ama Sarsıcı' Değerlendirmesi",
+    dek: "Ödüllü eser, hafıza ve aidiyet temalarını ince bir dille işlediği gerekçesiyle öne çıktı.",
+    author: "Çeviri: Singularity AI Bot",
+    rewritten: false,
+    desk: "Londra",
     date: "22 Haziran 2026",
     readTime: "4 dk okuma",
     image:
-      "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=1200&q=80",
     imageCaption:
-      "Yeni program, sınıf seviyelerine göre kademeli olarak uygulamaya alınacak.",
-    imageCredit: "Fotoğraf: Sözcü",
-    source: { name: "Sözcü", url: "https://www.sozcu.com.tr" },
+      "Jüri, eserin gösterişten uzak ama derin bir anlatı kurduğunu belirtti.",
+    imageCredit: "Fotoğraf: The Guardian",
+    source: { name: "The Guardian", url: "https://www.theguardian.com" },
     body: [
-      "Okullarda uygulanacak güncellenmiş müfredatın içeriği ve uygulama takvimi açıklandı. Yapılan değişikliklerde önceliğin temel okuryazarlık, matematik ve dijital beceriler gibi alanlara verildiği belirtiliyor.",
-      "Yetkililer, yeni programın tüm sınıf düzeylerinde aynı anda değil, kademeli olarak devreye alınacağını duyurdu. Bu yaklaşımın amacı, öğretmenlerin uyum süreci için yeterli zamana sahip olması olarak açıklandı.",
-      "Eğitimciler, değişikliklerin başarısının ders kitapları, öğretmen eğitimi ve ölçme-değerlendirme araçlarının uyumuna bağlı olduğunu vurguluyor.",
-      "Uygulamanın ilk aşamasının önümüzdeki öğretim yılında başlayacağı bildirildi.",
+      "Yılın en prestijli roman ödüllerinden biri, hafıza ve aidiyet temalarını işleyen bir eserin oldu. Jüri, kitabın “sessiz ama sarsıcı” anlatımını ve dilindeki incelikli ekonomiyi öne çıkardı.",
+      "Değerlendirmede, eserin büyük olaylardan çok gündelik ayrıntıların içinde derinleşen bir kurgu kurduğu vurgulandı. Ödülün, yazarın daha geniş bir okur kitlesine ulaşmasına katkı sağlaması bekleniyor.",
+      "Edebiyat çevreleri, kararı çağdaş romanın yönüne dair bir işaret olarak yorumladı: Gösterişli değil, derinlikli anlatıya yöneliş.",
+    ],
+  },
+  {
+    id: "uyku-saglik",
+    category: "Yaşam Tarzı",
+    kicker: "Sağlıklı Yaşam",
+    title: "Uzmanlardan Dijital Detoks Önerisi: Uyku Kalitesi Ekranla Düşüyor",
+    dek: "Araştırmalar, yatmadan önceki ekran süresinin uyku düzenini bozduğuna dikkat çekiyor.",
+    originalTitle:
+      "Bunu yapan PİŞMAN OLMUYOR! Uzmanların gizlediği o sır ortaya çıktı, herkes şaşkın...",
+    author: "Yeniden Yazım: Singularity AI Bot",
+    rewritten: true,
+    desk: "İstanbul",
+    date: "21 Haziran 2026",
+    readTime: "3 dk okuma",
+    image:
+      "https://images.unsplash.com/photo-1511295742362-92c96b1cf484?auto=format&fit=crop&w=1200&q=80",
+    imageCaption:
+      "Uzmanlar, yatmadan bir saat önce ekranları bırakmanın uyku kalitesini artırdığını belirtiyor.",
+    imageCredit: "Fotoğraf: Hürriyet",
+    source: { name: "Hürriyet", url: "https://www.hurriyet.com.tr" },
+    body: [
+      "Uyku sağlığı üzerine çalışan uzmanlar, yatmadan önceki ekran kullanımının uyku kalitesini olumsuz etkilediğine dikkat çekiyor. Mavi ışığa maruz kalmanın, vücudun doğal uyku ritmini geciktirebildiği belirtiliyor.",
+      "Uzmanlar, akşam saatlerinde ekran süresini azaltmayı, yatmadan önce kısa bir “dijital detoks” uygulamayı ve uyku ortamını karanlık tutmayı öneriyor.",
+      "Küçük alışkanlık değişikliklerinin bile zamanla uyku düzenine olumlu yansıyabileceği vurgulanıyor.",
+    ],
+  },
+];
+
+/* Backend yoksa kullanılacak köşe yazarı demosu (DB seed'iyle birebir uyumlu). */
+const MOCK_COLUMNISTS = [
+  {
+    id: 1,
+    slug: "elif-deniz",
+    name: "Elif Deniz",
+    title: "Teknoloji & Toplum",
+    bio: "Yapay zekânın gündelik hayatı nasıl yeniden kurduğunu yazıyor. Eski bir yazılım mühendisi; teknoloji ile etik arasındaki gerilim hattında dolaşıyor.",
+    avatar:
+      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=256&q=80",
+    columns: [
+      {
+        id: "makineler-dusunmuyor",
+        kicker: "Yapay Zekâ",
+        title: "Makineler Düşünmüyor; Biz Onlara Anlam Yüklüyoruz",
+        dek: "Büyük dil modellerini 'akıllı' sanmak, aynanın içindeki kendi yansımamıza hayran olmaktır.",
+        readTime: "4 dk okuma",
+        date: "25 Haziran 2026",
+        image:
+          "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
+        body: [
+          "Bir sistemin akıcı cümleler kurması, onu düşünen bir özne yapmaz. Yapay zekânın bugünkü hâli, devasa bir örüntü tahmin makinesidir; bizim ona yüklediğimiz anlamı bize geri yansıtır.",
+          "Yine de bu yansımayı küçümsemek yanlış olur. İnsanların çoğu kararını da sezgi ve örüntü üzerinden verir. Asıl mesele, makinenin 'düşünüp düşünmediği' değil; onu hangi sorumlulukla kullandığımızdır.",
+          "Teknolojiyi büyüleyici kılan, onun bize kendimizi gösteren bir ayna oluşudur. Tehlike de buradadır: Aynaya çok uzun bakan, dışarıdaki dünyayı unutur.",
+          "Önümüzdeki on yılda asıl tartışma, modellerin ne kadar 'zeki' olduğu değil; toplumun bu araçlar üzerindeki denetimini nasıl koruyacağı olacak.",
+        ],
+      },
+      {
+        id: "veri-senin-golgen",
+        kicker: "Mahremiyet",
+        title: "Veri Senin Gölgen: Onu Kimseye Ödünç Verme",
+        dek: "Ücretsiz olan her hizmetin bedelini, çoğu zaman farkında olmadan kendi mahremiyetimizle ödüyoruz.",
+        readTime: "3 dk okuma",
+        date: "23 Haziran 2026",
+        image:
+          "https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80",
+        body: [
+          "Dijital hayatta hiçbir şey gerçekten ücretsiz değildir. Bedelini ödediğimiz para değilse, büyük olasılıkla bedeli kendi verimizdir.",
+          "Veri, kişinin gölgesi gibidir: Nereye gittiğini, neye baktığını, neyden çekindiğini taşır. Bu gölgeyi pazarlayan bir ekonomi, mahremiyeti bir lükse çevirir.",
+          "Çözüm, teknolojiden kaçmak değil; kullanıcının kendi verisi üzerinde söz sahibi olduğu bir mimariyi talep etmektir.",
+        ],
+      },
+    ],
+  },
+  {
+    id: 2,
+    slug: "mert-kayhan",
+    name: "Mert Kayhan",
+    title: "Ekonomi & Piyasalar",
+    bio: "Piyasaların gürültüsü altındaki sinyali arıyor. Makroekonomi, faiz ve küresel ticaret üzerine soğukkanlı analizler yazıyor.",
+    avatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80",
+    columns: [
+      {
+        id: "faiz-kararlarini-okumak",
+        kicker: "Para Politikası",
+        title: "Faiz Kararlarını Okumak: Sözcüklerin Ardındaki Niyet",
+        dek: "Merkez bankalarının asıl mesajı genelde rakamlarda değil, cümlelerin tonundadır.",
+        readTime: "5 dk okuma",
+        date: "24 Haziran 2026",
+        image:
+          "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80",
+        body: [
+          "Piyasalar yalnızca faiz oranını değil, kararı anlatan metnin kelimelerini de fiyatlar. Bir 'temkinli' sözcüğü, çoğu zaman çeyrek puanlık bir adımdan daha güçlü sinyal taşır.",
+          "Yatırımcının işi, bu dilin ardındaki niyeti ölçmektir. Enflasyon yavaşlasa bile bankalar erken gevşemekten kaçınır; çünkü güvenilirlik, bir kez kaybedildiğinde pahalıya geri alınır.",
+          "Uzun vadede kazanan, manşete değil; eğilime bakandır.",
+        ],
+      },
+    ],
+  },
+  {
+    id: 3,
+    slug: "selin-aydin",
+    name: "Selin Aydın",
+    title: "Kültür & Edebiyat",
+    bio: "Kitapların, sahnelerin ve kentin kültürel nabzının peşinde. Edebiyatın gündelik hayata sızan o sessiz gücünü anlatıyor.",
+    avatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=256&q=80",
+    columns: [
+      {
+        id: "yavas-okuma",
+        kicker: "Edebiyat",
+        title: "Yavaş Okumanın İncelikli Bir İsyan Oluşu",
+        dek: "Her şeyin hızlandığı bir çağda bir romanı ağırdan almak, sessiz bir başkaldırıdır.",
+        readTime: "3 dk okuma",
+        date: "23 Haziran 2026",
+        image:
+          "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=1200&q=80",
+        body: [
+          "Bildirimlerin sürekli böldüğü bir dikkat ekonomisinde, bir kitabı baştan sona, acele etmeden okumak neredeyse politik bir tavra dönüşüyor.",
+          "Yavaş okumak, metnin değil okurun da derinleşmesidir. Cümlenin içinde oyalanmak, hızını kaybetmiş gibi görünse de aslında düşünceyi geri kazanmaktır.",
+          "Edebiyat, bize zamanı yeniden nasıl sahipleneceğimizi öğretir. Belki de en radikal eylem, telefonu bırakıp bir sayfayı ikinci kez okumaktır.",
+        ],
+      },
+    ],
+  },
+  {
+    id: 4,
+    slug: "deniz-toprak",
+    name: "Deniz Toprak",
+    title: "Spor",
+    bio: "Sahanın içindeki taktikten soyunma odasının psikolojisine, sporu bir anlatı olarak okuyor.",
+    avatar:
+      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=256&q=80",
+    columns: [
+      {
+        id: "kazanan-sistem",
+        kicker: "Futbol",
+        title: "Modern Futbolda Kazanan Takım Değil, Sistem",
+        dek: "Yıldız oyuncu çağı kapanıyor; artık şampiyonluğu kolektif bir fikir belirliyor.",
+        readTime: "4 dk okuma",
+        date: "22 Haziran 2026",
+        image:
+          "https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&w=1200&q=80",
+        body: [
+          "Bugün şampiyon olan takımlar, bir oyuncunun parıltısına değil; sahanın her metrekaresini kapsayan bir oyun fikrine yaslanıyor.",
+          "Pres, top kullanımı ve geçiş hızları artık sezgiyle değil, veriyle yönetiliyor. Yine de futbolun ruhu, bu hesapların arasından sıyrılan o öngörülemez ana dair.",
+          "Sistem kazandırır; ama insanı tribüne bağlayan, o sistemin çatlağından doğan beklenmedik kahramanlıktır.",
+        ],
+      },
     ],
   },
 ];
@@ -257,6 +439,12 @@ function todayLong() {
   }
 }
 
+function initials(name = "") {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
+}
+
 function safeParseBody(value) {
   if (Array.isArray(value)) return value;
   if (typeof value !== "string") return [];
@@ -268,11 +456,11 @@ function safeParseBody(value) {
   }
 }
 
-/* API ister zengin şemamızı, ister ham şemayı (image_url, read_time_minutes,
-   source_url …) döndürsün — ikisini de tek biçime indirger. */
+/* API ister zengin şemamızı, ister ham şemayı döndürsün — tek biçime indirger. */
 function normalizeArticle(a) {
   return {
     id: a.id != null ? String(a.id) : a.source_url || a.title,
+    lead: Boolean(a.lead),
     category: a.category || "Gündem",
     kicker: a.kicker || a.category || "Gündem",
     title: a.title || "",
@@ -322,15 +510,64 @@ async function fetchArticles(prefs) {
   return list.map(normalizeArticle);
 }
 
-/* Tercihler + aktif kategori filtresine göre görünürlük. Bilinmeyen
-   (canlı veriden gelen) kategori/kaynak filtrelenmez, daima gösterilir. */
-function isVisible(a, prefs, activeCategory) {
+/* Köşe yazarlarını API'den çeker. */
+async function fetchColumnists() {
+  const res = await fetch(COLUMNISTS_URL);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  return Array.isArray(json) ? json : [];
+}
+
+/* -------- Auth API yardımcıları -------- */
+async function apiAuth(path, body) {
+  const res = await fetch(`${AUTH_URL}/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || "İşlem başarısız.");
+  return data;
+}
+
+async function apiMe(token) {
+  const res = await fetch(`${AUTH_URL}/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Oturum geçersiz");
+  return res.json();
+}
+
+async function apiSavePreferences(token, prefs) {
+  await fetch(`${AUTH_URL}/preferences`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      categories: prefs.categories,
+      sources: prefs.sources,
+    }),
+  }).catch(() => {});
+}
+
+/* Tercihler + aktif kategori filtresine göre görünürlük. */
+function isVisible(a, prefs, activeCategory, user) {
+  const knownSrc = ALL_SOURCES.includes(a.source?.name);
+  const srcOK = !knownSrc || prefs.sources.includes(a.source.name);
+
+  if (activeCategory === FOR_YOU) {
+    const cats = user?.preferences?.categories;
+    const catOK =
+      Array.isArray(cats) && cats.length ? cats.includes(a.category) : true;
+    return catOK && srcOK;
+  }
+
   const knownCat = ALL_CATEGORIES.includes(a.category);
   const catOK = activeCategory
     ? a.category === activeCategory
     : !knownCat || prefs.categories.includes(a.category);
-  const knownSrc = ALL_SOURCES.includes(a.source?.name);
-  const srcOK = !knownSrc || prefs.sources.includes(a.source.name);
   return catOK && srcOK;
 }
 
@@ -364,6 +601,14 @@ function loadTheme() {
     window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
+}
+
+function loadToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || null;
+  } catch {
+    return null;
+  }
 }
 
 const onImgError = (e) => {
@@ -402,7 +647,173 @@ function Byline({ article, className = "" }) {
   );
 }
 
+/* Yuvarlak yazar avatarı — görsel yüklenemezse baş harflere düşer. */
+function Avatar({ src, name, size = 56, className = "" }) {
+  const [failed, setFailed] = useState(false);
+  const dim = { width: size, height: size };
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        onError={() => setFailed(true)}
+        style={dim}
+        className={
+          "shrink-0 rounded-full object-cover ring-1 ring-neutral-300 dark:ring-neutral-700 " +
+          className
+        }
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <span
+      style={{ ...dim, fontSize: size * 0.36 }}
+      className={
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-neutral-800 font-display font-bold text-white ring-1 ring-neutral-300 dark:bg-neutral-200 dark:text-neutral-900 dark:ring-neutral-700 " +
+        className
+      }
+    >
+      {initials(name)}
+    </span>
+  );
+}
+
+/* --------------------------- CANLI BİLGİ ŞERİDİ --------------------------- */
+
+const TICKER_INSTRUMENTS = [
+  { label: "BİST 100", base: 9847.32, decimals: 2, suffix: "" },
+  { label: "Dolar", base: 32.41, decimals: 3, suffix: " ₺" },
+  { label: "Euro", base: 35.18, decimals: 3, suffix: " ₺" },
+  { label: "Gram Altın", base: 2486.7, decimals: 2, suffix: " ₺" },
+];
+
+const TICKER_MATCHES = [
+  "⚽ Galatasaray 2–1 Fenerbahçe · 76'",
+  "⚽ Beşiktaş 0–0 Trabzonspor · 54'",
+  "🏀 Anadolu Efes 78–74 F.Bahçe Beko · Ç4",
+  "⚽ Real Madrid 3–2 Barcelona · 88'",
+  "⚽ Başakşehir 1–0 Antalyaspor · 63'",
+  "🏐 VakıfBank 2–1 Eczacıbaşı · 3. set",
+];
+
+const fmtNum = (n, d) =>
+  n.toLocaleString("tr-TR", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+function LiveTicker() {
+  const [vals, setVals] = useState(() =>
+    TICKER_INSTRUMENTS.map((i) => ({ ...i, value: i.base }))
+  );
+
+  // Her saniye inandırıcı bir "rastgele yürüyüş" ile fiyatları güncelle.
+  useEffect(() => {
+    const id = setInterval(() => {
+      setVals((prev) =>
+        prev.map((v) => {
+          const drift = (Math.random() - 0.5) * v.base * 0.0012;
+          const lo = v.base * 0.985;
+          const hi = v.base * 1.015;
+          const next = Math.min(hi, Math.max(lo, v.value + drift));
+          return { ...v, value: next };
+        })
+      );
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="safe-top bg-neutral-950 text-neutral-100">
+      <div className="mx-auto flex max-w-[1280px] items-stretch gap-3 px-4">
+        <span className="flex shrink-0 items-center gap-1.5 py-1.5 font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">
+          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+          <span className="hidden sm:inline">Canlı</span>
+        </span>
+
+        {/* Piyasa kutuları */}
+        <div className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto py-1.5 font-sans text-[11px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {vals.map((v) => {
+            const change = ((v.value - v.base) / v.base) * 100;
+            const up = change >= 0;
+            return (
+              <span
+                key={v.label}
+                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"
+              >
+                <span className="font-semibold uppercase tracking-wide text-neutral-400">
+                  {v.label}
+                </span>
+                <span className="font-mono tabular-nums text-neutral-100">
+                  {fmtNum(v.value, v.decimals)}
+                  {v.suffix}
+                </span>
+                <span
+                  className={
+                    "inline-flex items-center gap-0.5 font-mono tabular-nums " +
+                    (up ? "text-emerald-400" : "text-red-400")
+                  }
+                >
+                  {up ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                  {up ? "+" : ""}
+                  {change.toFixed(2)}%
+                </span>
+              </span>
+            );
+          })}
+        </div>
+
+        {/* Kayan maç sonuçları (marquee) */}
+        <div className="hidden min-w-0 max-w-[42%] flex-1 items-center overflow-hidden border-l border-neutral-800 pl-3 md:flex">
+          <div className="ticker-marquee py-1.5 font-sans text-[11px] text-neutral-300">
+            {[...TICKER_MATCHES, ...TICKER_MATCHES].map((m, i) => (
+              <span key={i} className="mx-5 whitespace-nowrap">
+                {m}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------ HEADER ------------------------------------- */
+
+function AccountControl({ user, onOpenAuth, onLogout, onForYou, compact = false }) {
+  if (!user) {
+    return (
+      <button
+        onClick={onOpenAuth}
+        className="inline-flex items-center gap-1.5 font-semibold transition hover:text-black dark:hover:text-white"
+        title="Giriş yap veya kayıt ol"
+      >
+        <User size={13} />
+        <span className={compact ? "hidden sm:inline" : ""}>Giriş Yap</span>
+      </button>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button
+        onClick={onForYou}
+        className="inline-flex items-center gap-1.5 transition hover:text-black dark:hover:text-white"
+        title="Bana Özel akışım"
+      >
+        <Avatar src={user.avatar} name={user.name} size={20} />
+        <span className="hidden max-w-[120px] truncate font-semibold normal-case tracking-normal sm:inline">
+          {user.name}
+        </span>
+      </button>
+      <button
+        onClick={onLogout}
+        aria-label="Çıkış yap"
+        title="Çıkış yap"
+        className="inline-flex items-center transition hover:text-black dark:hover:text-white"
+      >
+        <LogOut size={14} />
+      </button>
+    </span>
+  );
+}
 
 function Masthead({
   goHome,
@@ -412,13 +823,17 @@ function Masthead({
   theme,
   onToggleTheme,
   onOpenPrefs,
+  user,
+  onOpenAuth,
+  onLogout,
+  onForYou,
 }) {
   const date = todayLong();
   return (
     <header className="w-full">
       {/* Üst hizmet çubuğu */}
       <div className="mx-auto max-w-[1280px] px-4">
-        <div className="flex items-center justify-between border-b border-neutral-300 py-1.5 font-sans text-[11px] uppercase tracking-[0.12em] text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
+        <div className="flex items-center justify-between border-b border-neutral-300 py-2 font-sans text-[11px] uppercase tracking-[0.12em] text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
           <div className="hidden items-center gap-4 sm:flex">
             <span>{date}</span>
             <span className="text-neutral-300 dark:text-neutral-700">|</span>
@@ -432,7 +847,7 @@ function Masthead({
             <Menu size={14} /> Singularity
           </button>
 
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2.5 sm:gap-4">
             <span
               className={
                 "hidden items-center gap-1.5 sm:inline-flex " +
@@ -472,13 +887,21 @@ function Masthead({
               </button>
             )}
 
+            <AccountControl
+              user={user}
+              onOpenAuth={onOpenAuth}
+              onLogout={onLogout}
+              onForYou={onForYou}
+              compact
+            />
+
             <button
               onClick={onOpenPrefs}
               className="inline-flex items-center gap-1.5 font-semibold transition hover:text-black dark:hover:text-white"
               title="Akışımı özelleştir"
             >
               <Settings size={13} />
-              <span className="hidden md:inline">Akışımı Özelleştir</span>
+              <span className="hidden md:inline">Özelleştir</span>
             </button>
 
             <button
@@ -510,10 +933,7 @@ function Masthead({
             className="group mx-auto block flex-1 select-none"
             aria-label="Singularity ana sayfa"
           >
-            <h1
-              className="font-blackletter text-6xl leading-none text-black transition-opacity group-hover:opacity-80 dark:text-white sm:text-7xl md:text-8xl"
-              style={{ letterSpacing: "0.01em" }}
-            >
+            <h1 className="font-logo text-[2.85rem] leading-none text-black transition-opacity group-hover:opacity-80 dark:text-white sm:text-6xl md:text-7xl lg:text-8xl">
               Singularity
             </h1>
           </button>
@@ -526,7 +946,7 @@ function Masthead({
           </div>
         </div>
 
-        <p className="rule-star mx-auto mt-3 inline-block font-sans text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+        <p className="rule-star mx-auto mt-3 inline-block font-sans text-[9px] font-semibold uppercase tracking-[0.25em] text-neutral-500 dark:text-neutral-400 sm:text-[10px] sm:tracking-[0.3em]">
           Kişiselleştirilebilir Küresel Haber Ajansı
         </p>
       </div>
@@ -535,32 +955,178 @@ function Masthead({
 }
 
 /* Logonun hemen altındaki dinamik kategori barı */
-function CategoryBar({ categories, active, onSelect }) {
-  const items = ["Tümü", ...categories];
+function CategoryBar({
+  categories,
+  active,
+  onSelect,
+  user,
+  onOpenColumnists,
+  columnistsActive = false,
+}) {
+  const items = [...(user ? [FOR_YOU] : []), "Tümü", ...categories];
   return (
     <nav className="border-y-[3px] border-double border-black dark:border-neutral-500">
       <div className="mx-auto max-w-[1280px] px-4">
-        <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 py-2 font-sans text-[12px] font-semibold uppercase tracking-[0.1em] text-neutral-700 dark:text-neutral-300">
+        <ul className="flex flex-nowrap items-center justify-start gap-x-5 gap-y-1 overflow-x-auto py-2 font-sans text-[12px] font-semibold uppercase tracking-[0.1em] text-neutral-700 [scrollbar-width:none] dark:text-neutral-300 sm:flex-wrap sm:justify-center [&::-webkit-scrollbar]:hidden">
           {items.map((c) => {
-            const isActive = (c === "Tümü" && !active) || c === active;
+            const isForYou = c === FOR_YOU;
+            const isActive =
+              !columnistsActive &&
+              ((c === "Tümü" && !active) || c === active);
             return (
-              <li key={c}>
+              <li key={c} className="shrink-0">
                 <button
                   onClick={() => onSelect(c === "Tümü" ? null : c)}
                   className={
-                    isActive
+                    (isForYou
+                      ? "inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 "
+                      : "") +
+                    (isActive
                       ? "text-black underline decoration-2 underline-offset-4 dark:text-white"
-                      : "transition hover:text-black dark:hover:text-white"
+                      : "transition hover:text-black dark:hover:text-white")
                   }
                 >
+                  {isForYou && <Sparkles size={12} />}
                   {c}
                 </button>
               </li>
             );
           })}
+          <li className="shrink-0">
+            <button
+              onClick={onOpenColumnists}
+              className={
+                "inline-flex items-center gap-1 italic " +
+                (columnistsActive
+                  ? "text-black underline decoration-2 underline-offset-4 dark:text-white"
+                  : "transition hover:text-black dark:hover:text-white")
+              }
+            >
+              <Feather size={12} /> Köşe Yazarları
+            </button>
+          </li>
         </ul>
       </div>
     </nav>
+  );
+}
+
+/* ------------------------------ AUTH MODAL --------------------------------- */
+
+function AuthModal({ open, onClose, onLogin, onRegister }) {
+  const [mode, setMode] = useState("login"); // 'login' | 'register'
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setError("");
+      setBusy(false);
+    }
+  }, [open, mode]);
+
+  if (!open) return null;
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      if (mode === "login") await onLogin(email.trim(), password);
+      else await onRegister(email.trim(), password, name.trim());
+    } catch (err) {
+      setError(err.message || "Bir hata oluştu.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div
+        onClick={onClose}
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        aria-hidden="true"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="modal-pop relative w-full max-w-md border border-neutral-300 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900"
+      >
+        <button
+          onClick={onClose}
+          aria-label="Kapat"
+          className="absolute right-3 top-3 rounded-full p-1 text-neutral-500 transition hover:bg-neutral-100 hover:text-black dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+        >
+          <X size={20} />
+        </button>
+
+        <div className="px-7 pt-8 pb-6">
+          <p className="text-center font-logo text-3xl text-black dark:text-white">
+            Singularity
+          </p>
+          <Kicker className="mt-2 text-center">
+            {mode === "login" ? "Hesabınıza Giriş Yapın" : "Yeni Hesap Oluşturun"}
+          </Kicker>
+
+          <form onSubmit={submit} className="mt-6 space-y-3">
+            {mode === "register" && (
+              <input
+                type="text"
+                placeholder="Ad Soyad"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full border border-neutral-300 bg-transparent px-3 py-2.5 font-serif text-[15px] text-black outline-none transition focus:border-black dark:border-neutral-700 dark:text-white dark:focus:border-white"
+              />
+            )}
+            <input
+              type="email"
+              required
+              placeholder="E-posta"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border border-neutral-300 bg-transparent px-3 py-2.5 font-serif text-[15px] text-black outline-none transition focus:border-black dark:border-neutral-700 dark:text-white dark:focus:border-white"
+            />
+            <input
+              type="password"
+              required
+              minLength={6}
+              placeholder="Parola (en az 6 karakter)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-neutral-300 bg-transparent px-3 py-2.5 font-serif text-[15px] text-black outline-none transition focus:border-black dark:border-neutral-700 dark:text-white dark:focus:border-white"
+            />
+
+            {error && (
+              <p className="font-sans text-[12px] text-red-600 dark:text-red-400">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={busy}
+              className="flex w-full items-center justify-center gap-2 border border-black bg-black py-2.5 font-sans text-[12px] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:opacity-70 dark:border-white dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+            >
+              {busy && <Loader2 size={14} className="animate-spin" />}
+              {mode === "login" ? "Giriş Yap" : "Kayıt Ol"}
+            </button>
+          </form>
+
+          <p className="mt-5 text-center font-sans text-[12px] text-neutral-500 dark:text-neutral-400">
+            {mode === "login" ? "Hesabınız yok mu? " : "Zaten üye misiniz? "}
+            <button
+              onClick={() => setMode(mode === "login" ? "register" : "login")}
+              className="font-bold text-black underline underline-offset-2 dark:text-white"
+            >
+              {mode === "login" ? "Kayıt Olun" : "Giriş Yapın"}
+            </button>
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -589,6 +1155,7 @@ function PreferencesDrawer({
   onToggle,
   onSelectAll,
   onClear,
+  user,
 }) {
   return (
     <>
@@ -626,6 +1193,12 @@ function PreferencesDrawer({
         </header>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
+          {user && (
+            <p className="mb-4 border border-amber-300 bg-amber-50 px-3 py-2 font-sans text-[12px] text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300">
+              <Sparkles size={12} className="mr-1 inline" />
+              Seçimleriniz “Bana Özel” akışınıza kaydedilir.
+            </p>
+          )}
           <section className="mb-6">
             <p className="rule-star mb-2 font-sans text-[11px] font-bold uppercase tracking-[0.2em] text-black dark:text-white">
               Kategoriler
@@ -694,11 +1267,11 @@ function LeadStory({ article, onOpen }) {
     <article className="flex flex-col">
       <Kicker className="mb-2">{article.kicker}</Kicker>
       <button onClick={() => onOpen(article.id)} className="group text-left">
-        <h2 className="font-display text-[2.6rem] font-extrabold leading-[1.04] tracking-tight text-black transition group-hover:text-neutral-700 dark:text-white dark:group-hover:text-neutral-300 sm:text-5xl">
+        <h2 className="font-display text-[2rem] font-extrabold leading-[1.06] tracking-tight text-black transition group-hover:text-neutral-700 dark:text-white dark:group-hover:text-neutral-300 sm:text-[2.6rem] sm:leading-[1.04] md:text-5xl">
           {article.title}
         </h2>
       </button>
-      <p className="mt-3 font-display text-lg italic leading-snug text-neutral-700 dark:text-neutral-300">
+      <p className="mt-3 font-display text-base italic leading-snug text-neutral-700 dark:text-neutral-300 sm:text-lg">
         {article.dek}
       </p>
 
@@ -844,6 +1417,20 @@ function EmptyState({ onOpenPrefs }) {
   );
 }
 
+function ForYouBanner({ user }) {
+  return (
+    <div className="border-b border-neutral-200 bg-amber-50/60 dark:border-neutral-800 dark:bg-amber-900/10">
+      <div className="mx-auto flex max-w-[1280px] items-center gap-2 px-4 py-2.5 font-sans text-[12px] text-amber-800 dark:text-amber-300">
+        <Sparkles size={14} />
+        <span className="font-bold uppercase tracking-[0.12em]">Bana Özel</span>
+        <span className="text-amber-700/80 dark:text-amber-400/70">
+          — {user?.name} için seçtiğiniz kategorilerden derlendi
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function HomePage({ articles, onOpen, onOpenPrefs }) {
   if (!articles.length) return <EmptyState onOpenPrefs={onOpenPrefs} />;
 
@@ -949,10 +1536,10 @@ function ArticleView({ article, articles, onOpen, goHome }) {
           </div>
         )}
 
-        <h1 className="mt-3 text-center font-display text-[2.4rem] font-extrabold leading-[1.06] tracking-tight text-black dark:text-white sm:text-[3rem]">
+        <h1 className="mt-3 text-center font-display text-[2rem] font-extrabold leading-[1.08] tracking-tight text-black dark:text-white sm:text-[2.4rem] sm:leading-[1.06] md:text-[3rem]">
           {article.title}
         </h1>
-        <p className="mt-4 text-center font-display text-xl italic leading-snug text-neutral-700 dark:text-neutral-300">
+        <p className="mt-4 text-center font-display text-lg italic leading-snug text-neutral-700 dark:text-neutral-300 sm:text-xl">
           {article.dek}
         </p>
 
@@ -1007,7 +1594,7 @@ function ArticleView({ article, articles, onOpen, goHome }) {
           <p
             key={i}
             className={
-              "font-display text-[1.22rem] leading-[1.7] text-neutral-900 dark:text-gray-200 " +
+              "font-display text-[1.18rem] leading-[1.7] text-neutral-900 dark:text-gray-200 sm:text-[1.22rem] " +
               (i === 0 ? "drop-cap" : "mt-6")
             }
           >
@@ -1082,32 +1669,275 @@ function ArticleView({ article, articles, onOpen, goHome }) {
   );
 }
 
+/* -------------------------- KÖŞE YAZARLARI (OPINION) ---------------------- */
+
+function ColumnistsPage({ columnists, onOpenColumn, goHome }) {
+  return (
+    <main className="mx-auto max-w-[1100px] px-4 pb-20">
+      <div className="flex items-center justify-between border-b border-neutral-200 py-3 font-sans text-[11px] uppercase tracking-[0.12em] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+        <button
+          onClick={goHome}
+          className="flex items-center gap-1.5 font-semibold text-black transition hover:text-neutral-600 dark:text-white dark:hover:text-neutral-300"
+        >
+          <ArrowLeft size={14} /> Ana Sayfa
+        </button>
+        <span>Opinion</span>
+      </div>
+
+      <div className="py-8 text-center">
+        <Kicker>Görüş</Kicker>
+        <h1 className="mt-2 font-display text-4xl font-extrabold tracking-tight text-black dark:text-white sm:text-5xl">
+          Köşe Yazarları
+        </h1>
+        <p className="mx-auto mt-3 max-w-xl font-display text-lg italic text-neutral-600 dark:text-neutral-400">
+          Singularity yazarlarından dünyaya, ekonomiye ve kültüre ağırbaşlı bakışlar.
+        </p>
+      </div>
+
+      <div className="space-y-10 border-t-[3px] border-double border-black pt-8 dark:border-neutral-500">
+        {columnists.map((c) => (
+          <section
+            key={c.slug}
+            className="grid grid-cols-1 gap-5 border-b border-neutral-200 pb-10 last:border-b-0 dark:border-neutral-800 sm:grid-cols-[auto_1fr]"
+          >
+            <div className="flex items-center gap-4 sm:flex-col sm:items-center sm:text-center">
+              <Avatar src={c.avatar} name={c.name} size={88} />
+              <div className="sm:mt-3 sm:w-40">
+                <h2 className="font-display text-xl font-bold leading-tight text-black dark:text-white">
+                  {c.name}
+                </h2>
+                <p className="mt-0.5 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-amber-700 dark:text-amber-400">
+                  {c.title}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="font-serif text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-400">
+                {c.bio}
+              </p>
+              <ul className="mt-4 divide-y divide-neutral-200 border-t border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+                {(c.columns || []).map((col) => (
+                  <li key={col.id}>
+                    <button
+                      onClick={() => onOpenColumn(c, col)}
+                      className="group flex w-full items-start gap-3 py-3 text-left"
+                    >
+                      <ChevronRight
+                        size={16}
+                        className="mt-1 shrink-0 text-neutral-400 transition group-hover:translate-x-0.5 group-hover:text-black dark:group-hover:text-white"
+                      />
+                      <span>
+                        <span className="font-display text-[1.1rem] font-bold leading-snug text-black transition group-hover:text-neutral-600 dark:text-white dark:group-hover:text-neutral-300">
+                          {col.title}
+                        </span>
+                        <span className="mt-1 block font-serif text-[13px] italic leading-snug text-neutral-600 dark:text-neutral-400">
+                          {col.dek}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        ))}
+      </div>
+    </main>
+  );
+}
+
+function ColumnView({ columnist, column, onBack, goHome }) {
+  return (
+    <main className="mx-auto max-w-[1280px] px-4 pb-20">
+      <div className="flex items-center justify-between border-b border-neutral-200 py-3 font-sans text-[11px] uppercase tracking-[0.12em] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 font-semibold text-black transition hover:text-neutral-600 dark:text-white dark:hover:text-neutral-300"
+        >
+          <ArrowLeft size={14} /> Köşe Yazarları
+        </button>
+        <span>Opinion · {column.kicker}</span>
+      </div>
+
+      <article className="mx-auto max-w-[720px] pt-8">
+        <Kicker className="text-center">{column.kicker}</Kicker>
+        <h1 className="mt-3 text-center font-display text-[2rem] font-extrabold leading-[1.08] tracking-tight text-black dark:text-white sm:text-[2.4rem] md:text-[2.8rem]">
+          {column.title}
+        </h1>
+        <p className="mt-4 text-center font-display text-lg italic leading-snug text-neutral-700 dark:text-neutral-300 sm:text-xl">
+          {column.dek}
+        </p>
+
+        <div className="mt-6 flex items-center justify-center gap-3 border-y border-neutral-300 py-4 dark:border-neutral-700">
+          <Avatar src={columnist.avatar} name={columnist.name} size={48} />
+          <div className="text-left">
+            <p className="font-display text-[15px] font-bold text-black dark:text-white">
+              {columnist.name}
+            </p>
+            <p className="font-sans text-[11px] uppercase tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
+              {columnist.title}
+              {column.date ? ` · ${column.date}` : ""}
+              {column.readTime ? ` · ${column.readTime}` : ""}
+            </p>
+          </div>
+        </div>
+      </article>
+
+      {column.image && (
+        <figure className="mx-auto mt-8 max-w-[900px]">
+          <img
+            src={column.image}
+            alt={column.title}
+            onError={onImgError}
+            className="w-full object-cover"
+            loading="lazy"
+          />
+        </figure>
+      )}
+
+      <div className="mx-auto mt-10 max-w-[680px]">
+        {(column.body || []).map((para, i) => (
+          <p
+            key={i}
+            className={
+              "font-display text-[1.18rem] leading-[1.7] text-neutral-900 dark:text-gray-200 sm:text-[1.22rem] " +
+              (i === 0 ? "drop-cap" : "mt-6")
+            }
+          >
+            {para}
+          </p>
+        ))}
+
+        <div className="mt-10 flex items-center gap-3 border-t border-neutral-300 pt-5 dark:border-neutral-700">
+          <Avatar src={columnist.avatar} name={columnist.name} size={44} />
+          <p className="font-serif text-[14px] leading-relaxed text-neutral-600 dark:text-neutral-400">
+            <strong className="text-black dark:text-white">{columnist.name}</strong>{" "}
+            — {columnist.bio}
+          </p>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 /* ------------------------------- FOOTER ----------------------------------- */
 
-function Footer({ goHome }) {
+const FOOTER_LINKS = {
+  "Singularity Hakkında": ["Bize Ulaşın", "Erişilebilirlik", "Site Haritası", "Yardım"],
+  Kurumsal: ["Gizlilik Politikası", "Çerez Politikası", "Hizmet Şartları", "Abonelikler"],
+};
+
+function Footer({ goHome, onSelectCategory, onOpenColumnists }) {
   return (
     <footer className="border-t-[3px] border-double border-black dark:border-neutral-500">
-      <div className="mx-auto max-w-[1280px] px-4 py-10 text-center">
-        <button onClick={goHome} aria-label="Singularity ana sayfa">
-          <h2 className="font-blackletter text-4xl text-black dark:text-white">
-            Singularity
-          </h2>
-        </button>
-        <p className="mt-3 font-sans text-[11px] uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
-          Kişiselleştirilebilir Küresel Haber Ajansı · Anti-Clickbait Editör
-        </p>
-        <div className="mx-auto mt-6 flex max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-2 font-sans text-[12px] text-neutral-600 dark:text-neutral-400">
-          {ALL_CATEGORIES.map((s) => (
-            <span key={s} className="hover:text-black dark:hover:text-white">
-              {s}
-            </span>
-          ))}
+      <div className="mx-auto max-w-[1280px] px-4 py-12">
+        <div className="text-center">
+          <button onClick={goHome} aria-label="Singularity ana sayfa">
+            <h2 className="font-logo text-4xl text-black dark:text-white sm:text-5xl">
+              Singularity
+            </h2>
+          </button>
+          <p className="mt-3 font-sans text-[11px] uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+            Kişiselleştirilebilir Küresel Haber Ajansı · Anti-Clickbait Editör
+          </p>
         </div>
-        <p className="mt-8 font-sans text-[11px] text-neutral-400 dark:text-neutral-500">
-          © {new Date().getFullYear()} Singularity. Tüm haberler ilgili
-          kaynaklarına aittir; bu platform yalnızca yapay zeka destekli çeviri,
-          derleme ve düzenleme sunar.
-        </p>
+
+        {/* Link sütunları */}
+        <div className="mx-auto mt-10 grid max-w-4xl grid-cols-2 gap-8 sm:grid-cols-4">
+          {/* Kategoriler (çalışan) */}
+          <div className="col-span-2 sm:col-span-1">
+            <p className="font-sans text-[11px] font-bold uppercase tracking-[0.16em] text-black dark:text-white">
+              Bölümler
+            </p>
+            <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-1">
+              {ALL_CATEGORIES.map((c) => (
+                <li key={c}>
+                  <button
+                    onClick={() => onSelectCategory(c)}
+                    className="font-sans text-[13px] text-neutral-600 transition hover:text-black hover:underline dark:text-neutral-400 dark:hover:text-white"
+                  >
+                    {c}
+                  </button>
+                </li>
+              ))}
+              <li>
+                <button
+                  onClick={onOpenColumnists}
+                  className="font-sans text-[13px] italic text-neutral-600 transition hover:text-black hover:underline dark:text-neutral-400 dark:hover:text-white"
+                >
+                  Köşe Yazarları
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Kurumsal link blokları */}
+          {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
+            <div key={heading}>
+              <p className="font-sans text-[11px] font-bold uppercase tracking-[0.16em] text-black dark:text-white">
+                {heading}
+              </p>
+              <ul className="mt-3 space-y-1.5">
+                {links.map((l) => (
+                  <li key={l}>
+                    <a
+                      href="#"
+                      onClick={(e) => e.preventDefault()}
+                      className="font-sans text-[13px] text-neutral-600 transition hover:text-black hover:underline dark:text-neutral-400 dark:hover:text-white"
+                    >
+                      {l}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+
+          {/* Bülten */}
+          <div>
+            <p className="font-sans text-[11px] font-bold uppercase tracking-[0.16em] text-black dark:text-white">
+              Bülten
+            </p>
+            <p className="mt-3 font-serif text-[13px] leading-relaxed text-neutral-600 dark:text-neutral-400">
+              Günün ağırbaşlı özeti, her sabah kutunuzda.
+            </p>
+            <div className="mt-3 flex">
+              <input
+                type="email"
+                placeholder="E-posta"
+                className="w-full border border-neutral-300 bg-transparent px-2.5 py-2 font-sans text-[12px] text-black outline-none focus:border-black dark:border-neutral-700 dark:text-white dark:focus:border-white"
+              />
+              <button
+                onClick={(e) => e.preventDefault()}
+                className="shrink-0 border border-l-0 border-black bg-black px-3 font-sans text-[11px] font-bold uppercase tracking-[0.1em] text-white transition hover:bg-neutral-800 dark:border-white dark:bg-white dark:text-black"
+              >
+                Katıl
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-10 flex flex-col items-center gap-3 border-t border-neutral-200 pt-6 dark:border-neutral-800 sm:flex-row sm:justify-between">
+          <p className="font-sans text-[11px] text-neutral-400 dark:text-neutral-500">
+            © {new Date().getFullYear()} Singularity. Tüm haberler ilgili
+            kaynaklarına aittir.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 font-sans text-[11px] text-neutral-400 dark:text-neutral-500">
+            {["Bize Ulaşın", "Gizlilik Politikası", "Hizmet Şartları", "Çerez Politikası"].map(
+              (l) => (
+                <a
+                  key={l}
+                  href="#"
+                  onClick={(e) => e.preventDefault()}
+                  className="transition hover:text-black dark:hover:text-white"
+                >
+                  {l}
+                </a>
+              )
+            )}
+          </div>
+        </div>
       </div>
     </footer>
   );
@@ -1118,7 +1948,7 @@ function Footer({ goHome }) {
 function LoadingScreen() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white text-center dark:bg-neutral-900">
-      <h1 className="font-blackletter text-5xl text-black dark:text-white">
+      <h1 className="font-logo text-5xl text-black dark:text-white">
         Singularity
       </h1>
       <p className="mt-4 inline-flex items-center gap-2 font-sans text-[12px] font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
@@ -1132,11 +1962,13 @@ function LoadingScreen() {
 /* -------------------------------- APP ------------------------------------- */
 
 export default function App() {
-  const [view, setView] = useState("home");
+  const [view, setView] = useState("home"); // home | article | columnists | column
   const [activeId, setActiveId] = useState(null);
+  const [activeColumn, setActiveColumn] = useState(null); // { columnist, column }
   const [articles, setArticles] = useState(() =>
     MOCK_ARTICLES.map(normalizeArticle)
   );
+  const [columnists, setColumnists] = useState(MOCK_COLUMNISTS);
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1147,9 +1979,15 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const [token, setToken] = useState(loadToken);
+  const [user, setUser] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
+
   const refreshJobRef = useRef(null);
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
   const liveFetchDidMount = useRef(false);
 
   // Tema: <html>'e uygula ve kalıcı kıl.
@@ -1189,22 +2027,65 @@ export default function App() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
+    // Köşe yazarlarını da çekmeyi dene (başarısızsa mock kalır).
+    fetchColumnists()
+      .then((list) => {
+        if (!cancelled && list.length) setColumnists(list);
+      })
+      .catch(() => {});
+
     return () => {
       cancelled = true;
     };
   }, []);
 
+  // Saklı token varsa oturumu doğrula ve kullanıcıyı yükle.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    apiMe(token)
+      .then((u) => {
+        if (cancelled) return;
+        setUser(u);
+        if (u?.preferences?.categories?.length || u?.preferences?.sources?.length) {
+          setPrefs({
+            categories: u.preferences.categories?.length
+              ? u.preferences.categories
+              : DEFAULT_PREFS.categories,
+            sources: u.preferences.sources?.length
+              ? u.preferences.sources
+              : DEFAULT_PREFS.sources,
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          // Token geçersiz: temizle.
+          setToken(null);
+          try {
+            localStorage.removeItem(TOKEN_KEY);
+          } catch {
+            /* yoksay */
+          }
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Yalnızca ilk token yüklemesinde çalışsın.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Görünüm değiştiğinde sayfayı başa sar.
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
-  }, [view, activeId]);
+  }, [view, activeId, activeColumn]);
 
   // Canlı modda tercihler değişince sunucudan filtrelenmiş veriyi yeniden çek.
-  // (Demo modunda istemci-tarafı filtre yeterli; gereksiz istek atılmaz.)
   useEffect(() => {
     if (!live) return;
     if (!liveFetchDidMount.current) {
-      // İlk canlıya geçiş zaten açılış fetch'iyle yapıldı; tekrarlama.
       liveFetchDidMount.current = true;
       return;
     }
@@ -1213,13 +2094,10 @@ export default function App() {
       .then((list) => {
         if (!cancelled) setArticles(list);
       })
-      .catch(() => {
-        /* yoksay — mevcut liste korunur */
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
-    // prefs derin karşılaştırması için stringify (gereksiz render tetiklemesini önler)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, JSON.stringify(prefs)]);
 
@@ -1290,9 +2168,25 @@ export default function App() {
   const goHome = () => {
     setView("home");
     setActiveId(null);
+    setActiveColumn(null);
   };
-  const toggleTheme = () =>
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  const openColumnists = () => {
+    setView("columnists");
+    setActiveId(null);
+  };
+  const openColumn = (columnist, column) => {
+    setActiveColumn({ columnist, column });
+    setView("column");
+  };
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+
+  const selectCategory = (c) => {
+    setActiveCategory(c);
+    setView("home");
+    setActiveId(null);
+    setActiveColumn(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const togglePref = (key, value) =>
     setPrefs((p) => {
@@ -1306,13 +2200,98 @@ export default function App() {
     setPrefs({ categories: [...ALL_CATEGORIES], sources: [...ALL_SOURCES] });
   const clearPrefs = () => setPrefs({ categories: [], sources: [] });
 
+  // Tercih çekmecesi kapanınca, giriş yapılmışsa sunucuya kaydet.
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    if (tokenRef.current) {
+      apiSavePreferences(tokenRef.current, prefsRef.current);
+      setUser((u) => (u ? { ...u, preferences: { ...prefsRef.current } } : u));
+    }
+  };
+
+  // ---- Auth akışları ----
+  const persistToken = (tok) => {
+    setToken(tok);
+    try {
+      localStorage.setItem(TOKEN_KEY, tok);
+    } catch {
+      /* yoksay */
+    }
+  };
+
+  const handleLogin = async (email, password) => {
+    const data = await apiAuth("login", { email, password });
+    persistToken(data.token);
+    setUser(data.user);
+    if (
+      data.user?.preferences?.categories?.length ||
+      data.user?.preferences?.sources?.length
+    ) {
+      setPrefs({
+        categories: data.user.preferences.categories?.length
+          ? data.user.preferences.categories
+          : DEFAULT_PREFS.categories,
+        sources: data.user.preferences.sources?.length
+          ? data.user.preferences.sources
+          : DEFAULT_PREFS.sources,
+      });
+    }
+    setActiveCategory(FOR_YOU);
+    setView("home");
+    setAuthOpen(false);
+    setToast(`Hoş geldiniz, ${data.user.name}.`);
+    setTimeout(() => setToast(""), 4000);
+  };
+
+  const handleRegister = async (email, password, name) => {
+    const data = await apiAuth("register", { email, password, name });
+    persistToken(data.token);
+    // Yeni kullanıcının "Bana Özel"i, mevcut yerel seçimlerle başlasın.
+    apiSavePreferences(data.token, prefsRef.current);
+    setUser({ ...data.user, preferences: { ...prefsRef.current } });
+    setActiveCategory(FOR_YOU);
+    setView("home");
+    setAuthOpen(false);
+    setToast(`Hesabınız oluşturuldu. Hoş geldiniz, ${data.user.name}.`);
+    setTimeout(() => setToast(""), 4000);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setToken(null);
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch {
+      /* yoksay */
+    }
+    if (activeCategory === FOR_YOU) setActiveCategory(null);
+    setToast("Çıkış yapıldı.");
+    setTimeout(() => setToast(""), 3000);
+  };
+
+  const goForYou = () => {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
+    setActiveCategory(FOR_YOU);
+    setView("home");
+    setActiveId(null);
+    setActiveColumn(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const active = activeId ? articles.find((a) => a.id === activeId) : null;
-  const visible = articles.filter((a) => isVisible(a, prefs, activeCategory));
+  const visible = articles.filter((a) =>
+    isVisible(a, prefs, activeCategory, user)
+  );
+  const inForYou = activeCategory === FOR_YOU && view === "home";
 
   if (loading) return <LoadingScreen />;
 
   return (
     <div className="min-h-screen bg-white text-[#121212] dark:bg-neutral-900 dark:text-gray-200">
+      <LiveTicker />
       <Masthead
         goHome={goHome}
         live={live}
@@ -1321,14 +2300,36 @@ export default function App() {
         theme={theme}
         onToggleTheme={toggleTheme}
         onOpenPrefs={() => setDrawerOpen(true)}
+        user={user}
+        onOpenAuth={() => setAuthOpen(true)}
+        onLogout={handleLogout}
+        onForYou={goForYou}
       />
       <CategoryBar
-        categories={prefs.categories}
+        categories={prefs.categories.length ? prefs.categories : ALL_CATEGORIES}
         active={activeCategory}
-        onSelect={setActiveCategory}
+        onSelect={selectCategory}
+        user={user}
+        onOpenColumnists={openColumnists}
+        columnistsActive={view === "columnists" || view === "column"}
       />
 
-      {view === "article" && active ? (
+      {inForYou && <ForYouBanner user={user} />}
+
+      {view === "columnists" ? (
+        <ColumnistsPage
+          columnists={columnists}
+          onOpenColumn={openColumn}
+          goHome={goHome}
+        />
+      ) : view === "column" && activeColumn ? (
+        <ColumnView
+          columnist={activeColumn.columnist}
+          column={activeColumn.column}
+          onBack={openColumnists}
+          goHome={goHome}
+        />
+      ) : view === "article" && active ? (
         <ArticleView
           article={active}
           articles={articles}
@@ -1343,15 +2344,27 @@ export default function App() {
         />
       )}
 
-      <Footer goHome={goHome} />
+      <Footer
+        goHome={goHome}
+        onSelectCategory={selectCategory}
+        onOpenColumnists={openColumnists}
+      />
 
       <PreferencesDrawer
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={closeDrawer}
         prefs={prefs}
         onToggle={togglePref}
         onSelectAll={selectAllPrefs}
         onClear={clearPrefs}
+        user={user}
+      />
+
+      <AuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
       />
 
       {toast && (

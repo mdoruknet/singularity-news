@@ -9,3 +9,4 @@ uvicorn[standard]>=0.32.0
 python-dotenv>=1.0.1     # ANTHROPIC_API_KEY için .env desteği
 pydantic>=2.9.0          # Yapısal LLM çıktısı şeması
 apscheduler>=3.10.4      # Otonom çakışmasız zamanlayıcı (scheduler.py)
+PyJWT>=2.8.0             # JWT tabanlı kullanıcı oturumları (auth.py)
