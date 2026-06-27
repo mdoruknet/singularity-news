@@ -32,6 +32,12 @@ services:
     env: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
+    # SPA: client-side routing (react-router) için bilinmeyen yollar index.html'e
+    # yönlendirilir; böylece /haber/:id gibi derin linkler yenilenince 404 olmaz.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_API_URL
         fromService:

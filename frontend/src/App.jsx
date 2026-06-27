@@ -1,4 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 import { Loader2, RefreshCw } from "lucide-react";
 
 import {
@@ -59,10 +67,29 @@ import {
 
 
 
+/* Rota sarmalayıcıları — URL parametresinden ilgili nesneyi bulur; yoksa yönlendirir. */
+function ArticleRoute({ articles, onOpen, goHome }) {
+  const { id } = useParams();
+  const article = articles.find((a) => a.id === id);
+  if (!article) return <Navigate to="/" replace />;
+  return (
+    <ArticleView article={article} articles={articles} onOpen={onOpen} goHome={goHome} />
+  );
+}
+
+function ColumnRoute({ columnists, onBack, goHome }) {
+  const { slug, columnId } = useParams();
+  const columnist = columnists.find((c) => c.slug === slug);
+  const column = columnist?.columns?.find((x) => String(x.id) === String(columnId));
+  if (!columnist || !column) return <Navigate to="/kose-yazarlari" replace />;
+  return (
+    <ColumnView columnist={columnist} column={column} onBack={onBack} goHome={goHome} />
+  );
+}
+
 export default function App() {
-  const [view, setView] = useState("home"); // home | article | columnists | column
-  const [activeId, setActiveId] = useState(null);
-  const [activeColumn, setActiveColumn] = useState(null); // { columnist, column }
+  const navigate = useNavigate();
+  const location = useLocation();
   const [articles, setArticles] = useState(() =>
     MOCK_ARTICLES.map(normalizeArticle)
   );
@@ -197,7 +224,7 @@ export default function App() {
   // Görünüm değiştiğinde sayfayı başa sar.
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
-  }, [view, activeId, activeColumn]);
+  }, [location.pathname]);
 
   // Backend taze haberleri arka planda tarar; biz birkaç saniyede bir yoklayıp
   // (polling) yeni içerik düşünce akışı otomatik güncelleriz.
@@ -346,30 +373,16 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, JSON.stringify(prefs)]);
 
-  const openArticle = (id) => {
-    setActiveId(id);
-    setView("article");
-  };
-  const goHome = () => {
-    setView("home");
-    setActiveId(null);
-    setActiveColumn(null);
-  };
-  const openColumnists = () => {
-    setView("columnists");
-    setActiveId(null);
-  };
-  const openColumn = (columnist, column) => {
-    setActiveColumn({ columnist, column });
-    setView("column");
-  };
+  const openArticle = (id) => navigate(`/haber/${encodeURIComponent(id)}`);
+  const goHome = () => navigate("/");
+  const openColumnists = () => navigate("/kose-yazarlari");
+  const openColumn = (columnist, column) =>
+    navigate(`/kose/${columnist.slug}/${column.id}`);
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
   const selectCategory = (c) => {
     setActiveCategory(c);
-    setView("home");
-    setActiveId(null);
-    setActiveColumn(null);
+    navigate("/");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -418,7 +431,7 @@ export default function App() {
       setPrefs((p) => ({ ...p, categories: data.user.preferences.categories }));
     }
     setActiveCategory(FOR_YOU);
-    setView("home");
+    navigate("/");
     setAuthOpen(false);
     setToast(`Hoş geldiniz, ${data.user.name}.`);
     setTimeout(() => setToast(""), 4000);
@@ -431,7 +444,7 @@ export default function App() {
     apiSavePreferences(data.token, prefsRef.current);
     setUser({ ...data.user, preferences: { ...prefsRef.current } });
     setActiveCategory(FOR_YOU);
-    setView("home");
+    navigate("/");
     setAuthOpen(false);
     setToast(`Hesabınız oluşturuldu. Hoş geldiniz, ${data.user.name}.`);
     setTimeout(() => setToast(""), 4000);
@@ -456,9 +469,7 @@ export default function App() {
       return;
     }
     setActiveCategory(FOR_YOU);
-    setView("home");
-    setActiveId(null);
-    setActiveColumn(null);
+    navigate("/");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -467,15 +478,12 @@ export default function App() {
     setTimeout(() => setToast(""), 3500);
   };
 
-  const active = useMemo(
-    () => (activeId ? articles.find((a) => a.id === activeId) : null),
-    [activeId, articles]
-  );
   const visible = useMemo(
     () => articles.filter((a) => isVisible(a, prefs, activeCategory, user)),
     [articles, prefs, activeCategory, user]
   );
-  const inForYou = activeCategory === FOR_YOU && view === "home";
+  const isHome = location.pathname === "/";
+  const inForYou = activeCategory === FOR_YOU && isHome;
 
   if (loading) return <LoadingScreen />;
 
@@ -527,39 +535,51 @@ export default function App() {
         onSelect={selectCategory}
         user={user}
         onOpenColumnists={openColumnists}
-        columnistsActive={view === "columnists" || view === "column"}
+        columnistsActive={location.pathname.startsWith("/kose")}
       />
 
       {inForYou && <ForYouBanner user={user} />}
 
-      {view === "columnists" ? (
-        <ColumnistsPage
-          columnists={columnists}
-          onOpenColumn={openColumn}
-          goHome={goHome}
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <HomePage
+              articles={visible}
+              activeCategory={activeCategory}
+              onOpen={openArticle}
+              onOpenPrefs={() => setDrawerOpen(true)}
+            />
+          }
         />
-      ) : view === "column" && activeColumn ? (
-        <ColumnView
-          columnist={activeColumn.columnist}
-          column={activeColumn.column}
-          onBack={openColumnists}
-          goHome={goHome}
+        <Route
+          path="/haber/:id"
+          element={
+            <ArticleRoute articles={articles} onOpen={openArticle} goHome={goHome} />
+          }
         />
-      ) : view === "article" && active ? (
-        <ArticleView
-          article={active}
-          articles={articles}
-          onOpen={openArticle}
-          goHome={goHome}
+        <Route
+          path="/kose-yazarlari"
+          element={
+            <ColumnistsPage
+              columnists={columnists}
+              onOpenColumn={openColumn}
+              goHome={goHome}
+            />
+          }
         />
-      ) : (
-        <HomePage
-          articles={visible}
-          activeCategory={activeCategory}
-          onOpen={openArticle}
-          onOpenPrefs={() => setDrawerOpen(true)}
+        <Route
+          path="/kose/:slug/:columnId"
+          element={
+            <ColumnRoute
+              columnists={columnists}
+              onBack={openColumnists}
+              goHome={goHome}
+            />
+          }
         />
-      )}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
 
       <Footer
         goHome={goHome}

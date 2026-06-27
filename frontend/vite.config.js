@@ -9,6 +9,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
+      workbox: {
+        // SPA: bilinmeyen rotalar (örn. /haber/:id) yenilenince index.html'e düşsün.
+        navigateFallback: "index.html",
+        navigateFallbackDenylist: [/^\/api\//],
+      },
       includeAssets: [
         "icon.svg",
         "favicon-32.png",
