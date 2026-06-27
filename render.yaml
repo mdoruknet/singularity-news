@@ -6,7 +6,10 @@ services:
   - type: web
     name: singularity-backend
     env: docker
-    dockerfilePath: backend/Dockerfile
+    dockerfilePath: ./backend/Dockerfile
+    # Docker derleme bağlamı backend/ olmalı; aksi halde "COPY requirements.txt"
+    # repo kökünde dosyayı bulamaz ve build başarısız olur.
+    dockerContext: ./backend
     plan: free
     envVars:
       - key: SINGULARITY_DB
