@@ -266,7 +266,14 @@ export function PreferencesDrawer({
 }
 
 
+const EXTRA_PAGE = 8; // "Daha Fazla Göster" her tıklamada bu kadar haber açar.
+
 export function HomePage({ articles, onOpen, onOpenPrefs, activeCategory }) {
+  // Ana düzene sığmayan haberler için sayfalama. Hooks, erken return'den ÖNCE
+  // çağrılmalı (Hooks kuralı). Sekme değişince ilk sayfaya geri döner.
+  const [visibleExtra, setVisibleExtra] = useState(EXTRA_PAGE);
+  useEffect(() => setVisibleExtra(EXTRA_PAGE), [activeCategory]);
+
   if (!articles.length) return <EmptyState onOpenPrefs={onOpenPrefs} />;
 
   const lead = articles.find((a) => a.lead) || articles[0];
@@ -274,6 +281,7 @@ export function HomePage({ articles, onOpen, onOpenPrefs, activeCategory }) {
   const leftCol = rest.slice(0, 2);
   const rightCol = rest.slice(2, 3);
   const bottomRow = rest.slice(3, 7);
+  const extra = rest.slice(7); // üst düzende gösterilmeyen kalan haberler
 
   return (
     <main className="mx-auto max-w-[1280px] px-4 pb-16">
@@ -330,6 +338,38 @@ export function HomePage({ articles, onOpen, onOpenPrefs, activeCategory }) {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {extra.length > 0 && (
+        <section className="mt-12 border-t border-neutral-300 pt-6 dark:border-neutral-800">
+          <p className="mb-6 text-center font-sans text-[12px] font-bold uppercase tracking-[0.2em] text-neutral-600 dark:text-neutral-400">
+            Daha Fazla Haber
+          </p>
+          <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+            {extra.slice(0, visibleExtra).map((a) => (
+              <div
+                key={a.id}
+                className="border-t border-neutral-200 pt-4 dark:border-neutral-800"
+              >
+                <GridCard article={a} onOpen={onOpen} />
+              </div>
+            ))}
+          </div>
+
+          {visibleExtra < extra.length && (
+            <div className="mt-10 text-center">
+              <button
+                onClick={() => setVisibleExtra((n) => n + EXTRA_PAGE)}
+                className="inline-flex items-center gap-2 border border-black px-7 py-2.5 font-sans text-[12px] font-bold uppercase tracking-[0.18em] text-black transition hover:bg-black hover:text-white dark:border-neutral-400 dark:text-neutral-200 dark:hover:bg-white dark:hover:text-black"
+              >
+                Daha Fazla Göster
+                <span className="font-normal tracking-normal opacity-60">
+                  ({extra.length - visibleExtra})
+                </span>
+              </button>
+            </div>
+          )}
         </section>
       )}
     </main>
