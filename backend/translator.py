@@ -1,28 +1,65 @@
 """
-translator.py — Ham İngilizce haberi, Claude ile bağlam temelli (context-aware)
-editoryal Türkçeye çeviren modül.
+translator.py — Ham haberi, bağlam temelli (context-aware) editoryal Türkçeye
+çeviren modül. İki sağlayıcı desteklenir ve `LLM_PROVIDER` ile seçilir:
 
-Çıktı, frontend'in beklediği yapıyla birebir uyumlu bir JSON nesnesidir
-(manşet, özet, kategori, kicker, paragraflar). Yapısal çıktı için Anthropic
-SDK'nın `messages.parse` + Pydantic akışı kullanılır; böylece model serbest
-metin değil, doğrulanmış bir şema döndürür.
+  • "gemini"    → Google Gemini (varsayılan; GEMINI_API_KEY)
+  • "anthropic" → Anthropic Claude (ANTHROPIC_API_KEY)
+
+`LLM_PROVIDER` boşsa: GEMINI_API_KEY varsa Gemini, yoksa ANTHROPIC_API_KEY varsa
+Claude, ikisi de yoksa Gemini varsayılır. Her iki sağlayıcı da yapısal (JSON
+şema) çıktı verir; böylece model serbest metin değil, doğrulanmış bir
+`TranslatedArticle` döndürür.
 """
 
 from __future__ import annotations
 
+import os
 import logging
 
-import anthropic
 from pydantic import BaseModel, Field
 
 from scraper import RawArticle
 
 logger = logging.getLogger("singularity.translator")
 
-# Anahtarı ortamdan (ANTHROPIC_API_KEY) çözer; istemci süreç boyunca yeniden kullanılır.
-_client = anthropic.Anthropic()
+# --- Sağlayıcı seçimi ---
+_PROVIDER_ENV = os.environ.get("LLM_PROVIDER", "").strip().lower()
+if _PROVIDER_ENV in ("gemini", "google"):
+    PROVIDER = "gemini"
+elif _PROVIDER_ENV in ("anthropic", "claude"):
+    PROVIDER = "anthropic"
+elif os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+    PROVIDER = "gemini"
+elif os.environ.get("ANTHROPIC_API_KEY"):
+    PROVIDER = "anthropic"
+else:
+    PROVIDER = "gemini"
 
-MODEL = "claude-opus-4-8"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8")
+
+# İstemciler tembel (lazy) kurulur: yalnızca kullanılan sağlayıcının paketi gerekir.
+_gemini_client = None
+_anthropic_client = None
+
+
+def _get_gemini():
+    global _gemini_client
+    if _gemini_client is None:
+        from google import genai
+
+        api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        _gemini_client = genai.Client(api_key=api_key)
+    return _gemini_client
+
+
+def _get_anthropic():
+    global _anthropic_client
+    if _anthropic_client is None:
+        import anthropic
+
+        _anthropic_client = anthropic.Anthropic()
+    return _anthropic_client
 
 # --------------------------------------------------------------------------- #
 #  Sistem istemi (System Prompt) — çevirinin "editoryal ruhu" burada tanımlı.
@@ -98,29 +135,57 @@ def _build_user_prompt(raw: RawArticle) -> str:
     )
 
 
-def translate_article(raw: RawArticle) -> TranslatedArticle:
-    """Tek bir ham makaleyi Claude ile yapılandırılmış Türkçe çeviriye dönüştürür."""
-    logger.info("Çevriliyor: %s", raw.title[:70])
+def _translate_gemini(raw: RawArticle) -> TranslatedArticle:
+    """Google Gemini ile yapısal (JSON şema) Türkçe çeviri."""
+    from google.genai import types
 
-    response = _client.messages.parse(
-        model=MODEL,
-        # Adaptive thinking de çıktı token'ı harcadığından, yapılandırılmış
-        # makalenin kesilmeden tamamlanması için bütçeyi geniş tutuyoruz.
+    client = _get_gemini()
+    resp = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=_build_user_prompt(raw),
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            response_mime_type="application/json",
+            response_schema=TranslatedArticle,  # Pydantic → doğrulanmış JSON şema.
+            max_output_tokens=8000,
+        ),
+    )
+    result = resp.parsed
+    if result is None:
+        # Bazı durumlarda .parsed boş olabilir; ham JSON metnini doğrula.
+        text = (resp.text or "").strip()
+        if not text:
+            raise RuntimeError("Gemini çeviri çıktısı boş döndü.")
+        result = TranslatedArticle.model_validate_json(text)
+    return result
+
+
+def _translate_anthropic(raw: RawArticle) -> TranslatedArticle:
+    """Anthropic Claude ile yapısal (adaptive-thinking) Türkçe çeviri."""
+    client = _get_anthropic()
+    response = client.messages.parse(
+        model=ANTHROPIC_MODEL,
+        # Adaptive thinking de çıktı token'ı harcadığından bütçeyi geniş tut.
         max_tokens=8000,
-        # Bağlamı koruyan iyi bir çeviri için modele "düşünme" alanı tanı.
         thinking={"type": "adaptive"},
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": _build_user_prompt(raw)}],
-        output_format=TranslatedArticle,  # Yapısal çıktı: doğrulanmış Pydantic nesnesi.
+        output_format=TranslatedArticle,
     )
-
     result = response.parsed_output
     if result is None:
-        # Güvenlik reddi (stop_reason == "refusal") veya şema uyuşmazlığı.
         raise RuntimeError(
             f"Çeviri yapılandırılamadı (stop_reason={response.stop_reason})."
         )
     return result
+
+
+def translate_article(raw: RawArticle) -> TranslatedArticle:
+    """Tek bir ham makaleyi seçili sağlayıcıyla yapılandırılmış Türkçe çeviriye dönüştürür."""
+    logger.info("Çevriliyor (%s): %s", PROVIDER, raw.title[:70])
+    if PROVIDER == "anthropic":
+        return _translate_anthropic(raw)
+    return _translate_gemini(raw)
 
 
 if __name__ == "__main__":

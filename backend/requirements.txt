@@ -1,5 +1,6 @@
 # Singularity — Backend bağımlılıkları
-anthropic>=0.69.0        # Claude API (bağlam temelli çeviri)
+google-genai>=1.0.0      # Google Gemini (varsayılan çeviri sağlayıcısı)
+anthropic>=0.69.0        # Claude API (alternatif çeviri sağlayıcısı)
 feedparser>=6.0.11       # RSS/Atom besleme ayrıştırma
 beautifulsoup4>=4.12.3   # HTML kazıma (makale gövdesi, og:image)
 requests>=2.32.3         # HTTP istekleri

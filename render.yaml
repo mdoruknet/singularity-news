@@ -13,8 +13,15 @@ services:
         value: singularity.db
       - key: ALLOWED_ORIGINS
         value: "*"
-      - key: ANTHROPIC_API_KEY
+      # Çeviri sağlayıcısı: "gemini" (varsayılan) veya "anthropic".
+      - key: LLM_PROVIDER
+        value: gemini
+      # Google Gemini anahtarı (varsayılan çeviri sağlayıcısı).
+      - key: GEMINI_API_KEY
         sync: false # Render dashboard'dan manuel girilecek
+      # Anthropic anahtarı (yalnızca LLM_PROVIDER=anthropic ise gerekir, opsiyonel).
+      - key: ANTHROPIC_API_KEY
+        sync: false
 
   # 2. FRONTEND (React Static Site - ÜCRETSİZ)
   - type: web
