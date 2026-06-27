@@ -1,42 +1,17 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import {
-  ExternalLink,
-  ArrowLeft,
-  Clock,
-  Bot,
-  Menu,
-  Languages,
-  Loader2,
-  RefreshCw,
-  Settings,
-  Sun,
-  Moon,
-  X,
-  SlidersHorizontal,
-  User,
-  LogOut,
-  Feather,
-  ChevronRight,
-  Sparkles,
-} from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 
 import {
   ALL_CATEGORIES,
   SOURCE_GROUPS,
-  ALL_SOURCES,
-  DEFAULT_PREFS,
   FOR_YOU,
   THEME_KEY,
   PREFS_KEY,
   PREFS_VER_KEY,
   PREFS_VERSION,
   TOKEN_KEY,
-  FALLBACK_IMG,
 } from "./lib/constants.js";
 import {
-  todayLong,
-  initials,
-  safeParseBody,
   normalizeArticle,
   shuffleArr,
   reshuffle,
@@ -45,7 +20,6 @@ import {
   loadPrefs,
   loadTheme,
   loadToken,
-  onImgError,
 } from "./lib/utils.js";
 import {
   fetchArticles,
@@ -56,17 +30,9 @@ import {
   apiSavePreferences,
 } from "./lib/api.js";
 import { MOCK_ARTICLES, MOCK_COLUMNISTS } from "./lib/mockData.js";
-import { Kicker, Byline, Avatar, AccountControl } from "./components/ui.jsx";
 import { Masthead } from "./components/Masthead.jsx";
 import { CategoryBar } from "./components/CategoryBar.jsx";
-import {
-  LeadStory,
-  ColumnStory,
-  GridCard,
-  EditorsPick,
-  EmptyState,
-  ForYouBanner,
-} from "./components/cards.jsx";
+import { ForYouBanner } from "./components/cards.jsx";
 import {
   AuthModal,
   PreferencesDrawer,
@@ -501,9 +467,13 @@ export default function App() {
     setTimeout(() => setToast(""), 3500);
   };
 
-  const active = activeId ? articles.find((a) => a.id === activeId) : null;
-  const visible = articles.filter((a) =>
-    isVisible(a, prefs, activeCategory, user)
+  const active = useMemo(
+    () => (activeId ? articles.find((a) => a.id === activeId) : null),
+    [activeId, articles]
+  );
+  const visible = useMemo(
+    () => articles.filter((a) => isVisible(a, prefs, activeCategory, user)),
+    [articles, prefs, activeCategory, user]
   );
   const inForYou = activeCategory === FOR_YOU && view === "home";
 
