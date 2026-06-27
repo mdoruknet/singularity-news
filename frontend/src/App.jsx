@@ -897,24 +897,68 @@ function Masthead({
 }) {
   const date = todayLong();
   return (
-    <header className="safe-top w-full">
+    <header className="sticky top-0 z-30 w-full sm:static">
+      {/* === MOBİL (NYT tarzı): ☰ sol · Singularity orta · ikonlar sağ — YAPIŞKAN === */}
+      <div className="safe-top border-b border-neutral-300 bg-white/95 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95 sm:hidden">
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <button
+            onClick={onOpenPrefs}
+            aria-label="Menü"
+            title="Menü"
+            className="-ml-1 p-1 text-neutral-700 transition hover:text-black dark:text-neutral-300 dark:hover:text-white"
+          >
+            <Menu size={22} />
+          </button>
+          <button
+            onClick={goHome}
+            aria-label="Singularity ana sayfa"
+            className="select-none"
+          >
+            <span className="font-logo text-[1.7rem] leading-none text-black dark:text-white">
+              Singularity
+            </span>
+          </button>
+          <div className="flex items-center gap-3 text-neutral-700 dark:text-neutral-300">
+            <button
+              onClick={onRefreshFeed}
+              disabled={feedRefreshing}
+              aria-label="Akışı yenile"
+              title="Akışı yenile"
+              className={
+                "transition hover:text-black dark:hover:text-white " +
+                (feedRefreshing ? "text-blue-600 dark:text-blue-400" : "")
+              }
+            >
+              <RefreshCw size={19} className={feedRefreshing ? "animate-spin" : ""} />
+            </button>
+            <button
+              onClick={onToggleTheme}
+              aria-label="Açık / koyu tema"
+              title="Açık / koyu tema"
+              className="transition hover:text-black dark:hover:text-white"
+            >
+              {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
+            </button>
+            <AccountControl
+              user={user}
+              onOpenAuth={onOpenAuth}
+              onLogout={onLogout}
+              onForYou={onForYou}
+              compact
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* === MASAÜSTÜ: gazete düzeni (mobilde gizli) === */}
       {/* Üst hizmet çubuğu */}
-      <div className="mx-auto max-w-[1280px] px-4">
+      <div className="safe-top mx-auto hidden max-w-[1280px] px-4 sm:block">
         <div className="flex items-center justify-between border-b border-neutral-300 py-2 font-sans text-[11px] uppercase tracking-[0.12em] text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
           <div className="hidden items-center gap-4 sm:flex">
             <span>{date}</span>
             <span className="text-neutral-300 dark:text-neutral-700">|</span>
             <span>Bugünün Gazetesi</span>
           </div>
-          <button
-            onClick={onOpenPrefs}
-            className="-ml-1 flex items-center p-1 transition hover:text-black dark:hover:text-white sm:hidden"
-            aria-label="Menü"
-            title="Menü — akışını özelleştir"
-          >
-            <Menu size={18} />
-          </button>
-
           <div className="flex items-center gap-2.5 sm:gap-4">
             <span
               className={
@@ -997,8 +1041,8 @@ function Masthead({
         </div>
       </div>
 
-      {/* Logo bloğu */}
-      <div className="mx-auto max-w-[1280px] px-4 pt-3 pb-2 text-center">
+      {/* Logo bloğu (yalnızca masaüstü; mobilde üstteki yapışkan bar var) */}
+      <div className="mx-auto hidden max-w-[1280px] px-4 pt-3 pb-2 text-center sm:block">
         <div className="flex items-end justify-between gap-4">
           <div className="hidden w-44 text-left font-sans text-[10px] uppercase leading-tight tracking-[0.1em] text-neutral-500 dark:text-neutral-400 lg:block">
             <p className="font-bold text-neutral-700 dark:text-neutral-300">
@@ -1252,8 +1296,8 @@ function PreferencesDrawer({
       />
       <aside
         className={
-          "fixed right-0 top-0 z-50 flex h-full w-[88%] max-w-sm flex-col border-l border-neutral-200 bg-white shadow-2xl transition-transform duration-300 dark:border-neutral-800 dark:bg-neutral-900 " +
-          (open ? "translate-x-0" : "translate-x-full")
+          "fixed left-0 top-0 z-50 flex h-full w-[88%] max-w-sm flex-col border-r border-neutral-200 bg-white shadow-2xl transition-transform duration-300 dark:border-neutral-800 dark:bg-neutral-900 " +
+          (open ? "translate-x-0" : "-translate-x-full")
         }
         role="dialog"
         aria-modal="true"
