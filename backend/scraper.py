@@ -32,6 +32,11 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 
+try:  # Temiz makale gövdesi çıkarımı (menü/reklam/çerez gürültüsü olmadan).
+    import trafilatura
+except ImportError:  # Kurulu değilse BeautifulSoup <p> yöntemine güvenle düşülür.
+    trafilatura = None
+
 logger = logging.getLogger("singularity.scraper")
 
 # Sistemdeki kanonik kategori listesi (frontend ile birebir aynı sırada).
@@ -54,6 +59,11 @@ CATEGORIES = [
 MAX_WORKERS = int(os.environ.get("SCRAPE_WORKERS", "10"))
 REQUEST_TIMEOUT = 7       # Her HTTP isteği için sabit 7 sn timeout.
 PER_FEED_DEFAULT = 3      # Her kaynaktan yalnızca en yeni 3 haber.
+
+# Gövde çıkarımı: trafilatura çıktısı bundan kısaysa <p> yöntemine düşülür;
+# BODY_CHAR_CAP, LLM token maliyetini sınırlamak için gövdeyi tavanda kırpar.
+TRAFILATURA_MIN_CHARS = 200
+BODY_CHAR_CAP = 6000
 
 HEADERS = {
     "User-Agent": (
@@ -823,15 +833,39 @@ def enrich_with_full_text(article: RawArticle) -> RawArticle:
                 article.image_url = tag["content"]
                 break
 
-        container = soup.find("article") or soup.body
-        paragraphs: list[str] = []
-        if container:
-            for p in container.find_all("p"):
-                text = p.get_text(" ", strip=True)
-                if len(text) > 40:  # kısa "boilerplate" satırlarını ele
-                    paragraphs.append(text)
+        # 1) Önce trafilatura ile TEMİZ gövde dene — sayfanın gerçek makale
+        #    gövdesini çıkarır, menü/reklam/çerez gibi gürültüyü LLM'e yollamaz.
+        body = ""
+        if trafilatura is not None:
+            try:
+                extracted = trafilatura.extract(
+                    resp.text,
+                    url=article.source_url,
+                    include_comments=False,
+                    include_tables=False,
+                    favor_precision=True,
+                )
+                if extracted:
+                    body = extracted.strip()
+            except Exception:  # noqa: BLE001 — trafilatura hatası BS4'e düşsün.
+                body = ""
 
-        article.content = "\n\n".join(paragraphs[:25])
+        # 2) trafilatura yoksa ya da zayıf döndüyse eski <p> yöntemine düş;
+        #    hangisi daha uzunsa onu kullan (bazı sayfalarda <p> daha dolu olur).
+        if len(body) < TRAFILATURA_MIN_CHARS:
+            container = soup.find("article") or soup.body
+            paragraphs: list[str] = []
+            if container:
+                for p in container.find_all("p"):
+                    text = p.get_text(" ", strip=True)
+                    if len(text) > 40:  # kısa "boilerplate" satırlarını ele
+                        paragraphs.append(text)
+            fallback = "\n\n".join(paragraphs[:25])
+            if len(fallback) > len(body):
+                body = fallback
+
+        # 3) LLM token maliyetini sınırlamak için gövdeyi tavanda kırp.
+        article.content = body[:BODY_CHAR_CAP]
     except Exception:  # noqa: BLE001 — ayrıştırma hatası tüm turu durdurmasın.
         return article
     return article
