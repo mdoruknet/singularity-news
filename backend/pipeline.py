@@ -58,6 +58,29 @@ HEADLINE_RANKS = 1    # Her beslemenin ilk N haberi "manşet" sayılır (AI'a gi
 # faturalandırma açıksa 0 yapıp her turda çevirebilirsiniz.
 AI_MIN_INTERVAL = int(os.environ.get("AI_MIN_INTERVAL", "1200"))
 
+# İÇERİK FİLTRESİ: RSS akışında gerçek gövde/özet sunmayan (yalnızca başlık veren)
+# haberler akışa DÜŞMEZ. Yüzlerce kaynak olduğundan, aynı önemli haber içeriğiyle
+# birlikte başka bir kaynakta zaten yer alır ve o sürüm akışa girer. MIN_BODY_CHARS
+# ile ezilebilir (0 → filtre kapalı).
+MIN_BODY_CHARS = int(os.environ.get("MIN_BODY_CHARS", "140"))
+
+
+def _has_real_content(raw: RawArticle) -> bool:
+    """Haberin RSS akışında gerçek bir gövdesi/özeti var mı? (sadece başlık değil)
+
+    content:encoded (tam gövde) varsa çoğu zaman geçer. Yoksa özet (description)
+    yeterince uzun VE başlığın tekrarı değilse geçer. İçeriği olmayanlar elenir.
+    """
+    body = (raw.content or raw.summary or "").strip()
+    if not body:
+        return False
+    title = (raw.title or "").strip().lower()
+    bl = body.lower()
+    # Özet yalnızca başlığı tekrarlıyorsa (Google News proxy snippet'leri gibi) → içerik yok.
+    if bl == title or (bl.startswith(title) and len(body) < len(title) + 25):
+        return False
+    return len(body) >= MIN_BODY_CHARS
+
 
 def _should_use_ai(raw: RawArticle, ai_used: int) -> bool:
     """Bu haber AI'a mı gitmeli, yoksa ham mı kaydedilmeli?
@@ -194,6 +217,9 @@ def run(per_feed: int = PER_FEED_DEFAULT) -> None:
                 seen.add(raw.source_url)
                 if article_exists(raw.source_url):
                     skipped += 1
+                    continue
+                if not _has_real_content(raw):
+                    skipped += 1  # Sadece başlık, içerik yok → akışa düşürme.
                     continue
                 if not ai_done and _should_use_ai(raw, len(ai_candidates)):
                     ai_candidates.append(raw)

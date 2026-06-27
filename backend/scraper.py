@@ -721,6 +721,27 @@ def _image_from_entry(entry, summary_html: str) -> str | None:
     return None
 
 
+def _content_from_entry(entry) -> str:
+    """RSS 'content:encoded' (tam gövde) varsa paragraf metnine çevirir; yoksa ''.
+
+    Böylece tam metni RSS'te SUNAN kaynaklar, sayfayı indirmeden zengin bir gövde
+    verir. Sunmayanlar yalnızca özetiyle (ya da hiç) kalır; içerik filtresi (pipeline)
+    yalnızca gerçekten içeriği olanları akışa düşürür.
+    """
+    blocks = entry.get("content") or []
+    html = ""
+    for b in blocks:
+        v = b.get("value", "") if isinstance(b, dict) else ""
+        if len(v) > len(html):
+            html = v
+    if not html:
+        return ""
+    soup = BeautifulSoup(html, "html.parser")
+    paras = [p.get_text(" ", strip=True) for p in soup.find_all("p")]
+    paras = [p for p in paras if len(p) > 1]
+    return "\n\n".join(paras) if paras else soup.get_text(" ", strip=True)
+
+
 def fetch_feed_entries(feed: dict[str, str], limit: int = PER_FEED_DEFAULT) -> list[RawArticle]:
     """Tek bir beslemeden en yeni `limit` haberi RawArticle olarak döndürür.
 
@@ -748,6 +769,7 @@ def fetch_feed_entries(feed: dict[str, str], limit: int = PER_FEED_DEFAULT) -> l
                 region=feed.get("region", ""),
                 category=feed.get("category", ""),
                 summary=summary,
+                content=_content_from_entry(entry),
                 image_url=_image_from_entry(entry, summary_html),
                 published=entry.get("published", entry.get("updated")),
                 tags=[t for t in tags if t],
