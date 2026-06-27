@@ -104,7 +104,9 @@ def translate_article(raw: RawArticle) -> TranslatedArticle:
 
     response = _client.messages.parse(
         model=MODEL,
-        max_tokens=4000,
+        # Adaptive thinking de çıktı token'ı harcadığından, yapılandırılmış
+        # makalenin kesilmeden tamamlanması için bütçeyi geniş tutuyoruz.
+        max_tokens=8000,
         # Bağlamı koruyan iyi bir çeviri için modele "düşünme" alanı tanı.
         thinking={"type": "adaptive"},
         system=SYSTEM_PROMPT,
