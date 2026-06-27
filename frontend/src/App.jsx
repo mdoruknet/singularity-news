@@ -646,7 +646,9 @@ async function fetchArticles(prefs) {
   ) {
     params.set("categories", prefs.categories.join(","));
   }
-  params.set("limit", "120");
+  // Geniş çek: seyrek kategoriler (örn. Türkiye) "en yeni N" penceresinden
+  // taşmasın diye yüksek tutulur; kategori sekmeleri istemci tarafında filtrelenir.
+  params.set("limit", "500");
   const res = await fetch(`${API_URL}?${params.toString()}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
@@ -905,11 +907,12 @@ function Masthead({
             <span>Bugünün Gazetesi</span>
           </div>
           <button
-            onClick={goHome}
-            className="flex items-center gap-1.5 transition hover:text-black dark:hover:text-white sm:hidden"
-            aria-label="Ana sayfa"
+            onClick={onOpenPrefs}
+            className="-ml-1 flex items-center p-1 transition hover:text-black dark:hover:text-white sm:hidden"
+            aria-label="Menü"
+            title="Menü — akışını özelleştir"
           >
-            <Menu size={14} /> Singularity
+            <Menu size={18} />
           </button>
 
           <div className="flex items-center gap-2.5 sm:gap-4">
@@ -975,7 +978,7 @@ function Masthead({
 
             <button
               onClick={onOpenPrefs}
-              className="inline-flex items-center gap-1.5 font-semibold transition hover:text-black dark:hover:text-white"
+              className="hidden items-center gap-1.5 font-semibold transition hover:text-black dark:hover:text-white sm:inline-flex"
               title="Akışımı özelleştir"
             >
               <Settings size={13} />
