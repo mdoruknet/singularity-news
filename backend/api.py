@@ -51,7 +51,11 @@ app = FastAPI(title="Singularity API", version="1.0.0")
 
 # Otomatik tarama: son taramadan bu kadar saniye geçtiyse, gelen istek arka
 # planda yeni bir tarama tetikler (trafik-tetiklemeli; Render free için ideal).
-AUTO_SCRAPE_INTERVAL = int(os.environ.get("AUTO_SCRAPE_INTERVAL", "90"))
+# Önemli: bu süre, bir taramanın ücretsiz katmanda sürebileceği süreden UZUN
+# olmalı; aksi halde (eski 90sn) bir tarama biterken bir sonraki istek YENİ bir
+# tarama başlatıyor, taramalar üst üste binip 512MB'lık kutuyu çökertiyordu.
+# Damga tarama BAŞINDA atıldığından, güvenli pencere için varsayılan 600sn.
+AUTO_SCRAPE_INTERVAL = int(os.environ.get("AUTO_SCRAPE_INTERVAL", "600"))
 
 
 def _safe_pipeline_run() -> None:

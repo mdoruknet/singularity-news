@@ -31,7 +31,6 @@ from dotenv import load_dotenv
 
 from scraper import (
     fetch_feed_entries,
-    enrich_many,
     is_clickbait,
     scrape_columnists,
     RawArticle,
@@ -115,23 +114,73 @@ def _save_raw_passthrough(raw: RawArticle) -> str:
     )
 
 
+def _save_translated(raw: RawArticle, translated) -> None:
+    """Çevrilmiş/yeniden-yazılmış makaleyi kaydeder."""
+    save_article(
+        source_url=raw.source_url,
+        source_name=raw.source_name,
+        original_title=raw.title,
+        category=translated.category,
+        kicker=translated.kicker,
+        title=translated.title,
+        dek=translated.dek,
+        read_time=f"{translated.read_time_minutes} dk okuma",
+        image=raw.image_url,
+        image_caption=translated.image_caption,
+        image_credit=f"Fotoğraf: {raw.source_name}",
+        body=translated.body,
+        rewritten=translated.rewritten,
+        author=(
+            "Yeniden Yazım: Singularity AI Bot"
+            if translated.rewritten
+            else "Çeviri: Singularity AI Bot"
+        ),
+    )
+
+
 def run(per_feed: int = PER_FEED_DEFAULT) -> None:
     init_db()
     processed_ai, processed_raw, skipped, failed = 0, 0, 0, 0
-    ai_used = 0
 
-    # 1) AKIŞLI TARAMA + ANINDA KAYIT. Her kaynak tamamlandıkça rutin haberleri
-    #    HEMEN ham kaydederiz; yalnızca az sayıdaki AI adayını (yabancı manşet /
-    #    Türkçe tık tuzağı) sona bırakırız.
-    #
-    #    Neden: Eski sürüm 297 kaynağın HEPSİNİ önce belleğe topluyordu
-    #    (fetch_all_feeds → ~750 haber RAM'de) ve ANCAK ondan sonra kaydediyordu.
-    #    Render'ın 512MB'ında bu ağır toplama adımı bitmeden çöküyor/donuyordu →
-    #    hiç kayıt olmadan ölüyordu → DB boş → "demo". Akışlı kayıtla haberler
-    #    saniyeler içinde düşer, tarama yarıda kesilse bile o ana dek
-    #    kaydedilenler kalır ve bellek düşük/sabit seyreder.
     seen: set[str] = set()
     ai_candidates: list[RawArticle] = []
+    ai_done = False  # Bu turda AI çeviri adımı bir kez çalıştı mı?
+
+    def flush_ai() -> None:
+        """Toplanan AI adaylarını ERKEN işler — taramanın bitmesini beklemeden.
+
+        Kota dostu kapı: en fazla AI_MIN_INTERVAL'da bir, AI_BUDGET kadar manşet
+        çevrilir. Kapı kapalıysa (yakın zamanda çevrildi) adaylar ham kaydedilir;
+        haber ÇÖPE ATILMAZ. Tur başına yalnızca bir kez gerçek iş yapar (ai_done).
+
+        Neden erken: ücretsiz katmanda tarama yavaş/yarıda kesilebiliyor; çeviri
+        en sonda olunca hiç çalışmıyordu. Bütçe dolar dolmaz çevirip güvenceye alırız.
+        """
+        nonlocal processed_ai, processed_raw, failed, ai_done, ai_candidates
+        if ai_done or not ai_candidates:
+            return
+        ai_done = True
+        cands, ai_candidates = ai_candidates, []
+        gate_open = try_claim("last_ai", AI_MIN_INTERVAL)
+        for raw in cands:
+            if gate_open:
+                try:
+                    _save_translated(raw, translate_article(raw))
+                    processed_ai += 1
+                    continue
+                except Exception as exc:  # noqa: BLE001 — tek hata hattı durdurmasın.
+                    logger.error("AI işleme başarısız (%s): %s", raw.title[:60], exc)
+            try:
+                _save_raw_passthrough(raw)  # Kapı kapalı / hata → ham kaydet.
+                processed_raw += 1
+            except Exception:  # noqa: BLE001
+                failed += 1
+
+    # 1) AKIŞLI TARAMA + ANINDA KAYIT + ERKEN ÇEVİRİ. Her kaynak tamamlandıkça
+    #    rutin haberleri HEMEN ham kaydederiz; AI adayları (yabancı manşet / Türkçe
+    #    tık tuzağı) AI_BUDGET'a ulaşır ulaşmaz hemen çevrilir (flush_ai). Böylece
+    #    haberler saniyeler içinde, çeviriler de taramanın bitişine bağlı kalmadan
+    #    güvenilir biçimde düşer; bellek düşük seyreder; yarıda kesilse bile kalır.
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = [executor.submit(fetch_feed_entries, f, per_feed) for f in FEEDS]
         for fut in as_completed(futures):
@@ -146,8 +195,10 @@ def run(per_feed: int = PER_FEED_DEFAULT) -> None:
                 if article_exists(raw.source_url):
                     skipped += 1
                     continue
-                if _should_use_ai(raw, len(ai_candidates)):
-                    ai_candidates.append(raw)  # AI'a gidecek azınlık; sona bırakılır.
+                if not ai_done and _should_use_ai(raw, len(ai_candidates)):
+                    ai_candidates.append(raw)
+                    if len(ai_candidates) >= AI_BUDGET:
+                        flush_ai()  # Yeterli aday → hemen çevir (erken, kota dostu).
                     continue
                 try:
                     _save_raw_passthrough(raw)  # HEMEN kaydet → akış anında dolar.
@@ -155,57 +206,8 @@ def run(per_feed: int = PER_FEED_DEFAULT) -> None:
                 except Exception as exc:  # noqa: BLE001
                     logger.error("Ham kayıt başarısız (%s): %s", raw.title[:60], exc)
                     failed += 1
-    logger.info("Akışlı ham kayıt tamam: %d haber düştü.", processed_raw)
-
-    # 4) AI ÇEVİRİ — KOTA DOSTU KAPI. Ücretsiz Gemini'nin günlük kotası küçük
-    #    olduğundan çeviri en fazla AI_MIN_INTERVAL'da bir, az sayıda (AI_BUDGET)
-    #    manşet için yapılır. Kapı kapalıysa (yakın zamanda çevrildi / aday yok)
-    #    adaylar da ham kaydedilir; haber ÇÖPE ATILMAZ, yalnızca çevrilmeden düşer.
-    if not (ai_candidates and try_claim("last_ai", AI_MIN_INTERVAL)):
-        for raw in ai_candidates:
-            try:
-                _save_raw_passthrough(raw)
-                processed_raw += 1
-            except Exception:  # noqa: BLE001
-                failed += 1
-        ai_candidates = []  # Bu turda çeviri penceresi değil → AI adımı atlanır.
-
-    enrich_many([r for r in ai_candidates if "news.google.com" not in (r.source_url or "")])
-    for raw in ai_candidates:
-        try:
-            translated = translate_article(raw)
-            ai_used += 1
-        except Exception as exc:  # noqa: BLE001 — tek hata tüm hattı durdurmasın.
-            logger.error("AI işleme başarısız (%s): %s", raw.title[:60], exc)
-            try:
-                _save_raw_passthrough(raw)  # çöpe atma: ham kaydet.
-                processed_raw += 1
-            except Exception:  # noqa: BLE001
-                failed += 1
-            continue
-
-        article_id = save_article(
-            source_url=raw.source_url,
-            source_name=raw.source_name,
-            original_title=raw.title,
-            category=translated.category,
-            kicker=translated.kicker,
-            title=translated.title,
-            dek=translated.dek,
-            read_time=f"{translated.read_time_minutes} dk okuma",
-            image=raw.image_url,
-            image_caption=translated.image_caption,
-            image_credit=f"Fotoğraf: {raw.source_name}",
-            body=translated.body,
-            rewritten=translated.rewritten,
-            author=(
-                "Yeniden Yazım: Singularity AI Bot"
-                if translated.rewritten
-                else "Çeviri: Singularity AI Bot"
-            ),
-        )
-        logger.info("AI ile kaydedildi: %s (%s)", translated.title[:60], article_id)
-        processed_ai += 1
+    flush_ai()  # Tarama bitti; AI_BUDGET'a ulaşılmadıysa kalan adayları işle.
+    logger.info("Akışlı kayıt tamam: %d ham, %d AI çevirisi.", processed_raw, processed_ai)
 
     # 5) Gerçek köşe yazarlarının gerçek yazılarını da tazele (AI yok).
     try:
@@ -215,12 +217,11 @@ def run(per_feed: int = PER_FEED_DEFAULT) -> None:
         logger.warning("Köşe yazarı taraması başarısız: %s", exc)
 
     logger.info(
-        "Hat tamamlandı — AI: %d, ham: %d, atlanan: %d, hatalı: %d (AI bütçesi: %d/%d)",
+        "Hat tamamlandı — AI: %d, ham: %d, atlanan: %d, hatalı: %d (AI bütçesi: %d)",
         processed_ai,
         processed_raw,
         skipped,
         failed,
-        ai_used,
         AI_BUDGET,
     )
 
