@@ -102,8 +102,18 @@ _MIGRATIONS = [
 
 
 def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+    # 4 API worker + 1 scheduler aynı SQLite dosyasına yazar. Varsayılan ayarlarla
+    # eşzamanlı yazımlar "database is locked" fırlatır; bunu üç ayarla çözeriz:
+    #   • timeout=15 / busy_timeout=15000 → kilit meşgulse 15sn'ye kadar bekle.
+    #   • journal_mode=WAL → okuyucular yazıcıyı (ve yazıcı okuyucuları) bloklamaz;
+    #     yazımlar ayrı bir WAL dosyasına gider → çok daha iyi eşzamanlılık.
+    #   • synchronous=NORMAL → WAL ile güvenli olup belirgin yazma hızı kazandırır.
+    # WAL kipi db başlığında kalıcıdır; her bağlantıda set etmek idempotenttir.
+    conn = sqlite3.connect(DB_PATH, timeout=15.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=15000")
     return conn
 
 
