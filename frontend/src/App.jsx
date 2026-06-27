@@ -982,28 +982,11 @@ function Masthead({
               {live ? "Canlı" : "Demo"}
             </span>
 
-            {live && (
-              <button
-                onClick={onRefresh}
-                disabled={isRefreshing}
-                title="Botları yeni haber taraması için sahaya sür"
-                className={
-                  "hidden items-center gap-1.5 font-semibold sm:inline-flex " +
-                  (isRefreshing
-                    ? "cursor-wait text-blue-600 dark:text-blue-400"
-                    : "transition hover:text-black dark:hover:text-white")
-                }
-              >
-                <RefreshCw size={12} className={isRefreshing ? "animate-spin" : ""} />
-                {isRefreshing ? "Baskı Hazırlanıyor…" : "Yeni Baskı"}
-              </button>
-            )}
-
             <button
               onClick={onRefreshFeed}
               disabled={feedRefreshing}
               aria-label="Akışı yenile"
-              title="Akışı yenile"
+              title="Haberleri yenile"
               className={
                 "inline-flex items-center transition hover:text-black dark:hover:text-white " +
                 (feedRefreshing ? "cursor-wait text-blue-600 dark:text-blue-400" : "")
@@ -2433,14 +2416,16 @@ export default function App() {
         } catch {
           /* yoksay */
         }
+        // Tek bildirim: kısa onay. Taze haber zaten geldiği için "aranıyor"
+        // göstergesi AÇILMAZ (eşzamanlı çift bildirim olmasın).
         setToast("Akış yenilendi.");
       } else {
-        // Henüz canlı haber yok: demo'yu tazele, sunucu taramasını yoklamaya başla.
+        // Henüz canlı haber yok: demoyu tazele ve sunucu taramasını yokla.
+        // Burada SADECE "Taze haberler aranıyor…" göstergesi çıkar; ikinci bildirim yok.
         setArticles(reshuffle(MOCK_ARTICLES.map(normalizeArticle)));
         setColumnists((prev) => shuffleArr(prev));
-        setToast("Taze haberler getiriliyor…");
+        startPolling();
       }
-      startPolling();
     } finally {
       setFeedRefreshing(false);
       setTimeout(() => setToast(""), 2500);
@@ -2833,7 +2818,7 @@ export default function App() {
         </div>
       )}
 
-      {polling && (
+      {polling && !toast && (
         <div className="fixed bottom-6 left-6 z-[55] inline-flex items-center gap-2 rounded-full bg-black/85 px-3 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-white shadow-lg backdrop-blur dark:bg-white/90 dark:text-black">
           <Loader2 size={13} className="animate-spin" />
           Taze haberler aranıyor…
