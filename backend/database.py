@@ -313,12 +313,13 @@ def get_job_status(job_id: str) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def try_claim_scrape(min_interval_seconds: int = 90) -> bool:
-    """Son taramadan bu yana `min_interval` geçtiyse taramayı ATOMİK olarak sahiplenir.
+def try_claim(key: str, min_interval_seconds: int) -> bool:
+    """Genel amaçlı ATOMİK zaman kapısı.
 
-    True dönerse çağıran tarama yapmalı; False ise (yakın zamanda tarandı ya da
-    başka worker sahiplendi) tarama atlanmalı. SQLite BEGIN IMMEDIATE ile worker'lar
-    arası yarış önlenir.
+    `app_state[key]` damgasından bu yana `min_interval` geçtiyse sahiplenir
+    (True döner) ve damgayı şimdiki ana günceller; aksi halde False. SQLite
+    BEGIN IMMEDIATE ile worker'lar/iş parçacıkları arası yarış önlenir. Hem
+    tarama kilidi (last_scrape) hem AI çeviri kapısı (last_ai) bunu kullanır.
     """
     now = datetime.now(timezone.utc).timestamp()
     conn = sqlite3.connect(DB_PATH, timeout=2.0)
@@ -326,15 +327,15 @@ def try_claim_scrape(min_interval_seconds: int = 90) -> bool:
     try:
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
-            "SELECT value FROM app_state WHERE key = 'last_scrape'"
+            "SELECT value FROM app_state WHERE key = ?", (key,)
         ).fetchone()
         last = float(row["value"]) if row and row["value"] else 0.0
         if now - last < min_interval_seconds:
             conn.execute("ROLLBACK")
             return False
         conn.execute(
-            "INSERT OR REPLACE INTO app_state (key, value) VALUES ('last_scrape', ?)",
-            (str(now),),
+            "INSERT OR REPLACE INTO app_state (key, value) VALUES (?, ?)",
+            (key, str(now)),
         )
         conn.execute("COMMIT")
         return True
@@ -347,6 +348,15 @@ def try_claim_scrape(min_interval_seconds: int = 90) -> bool:
         return False
     finally:
         conn.close()
+
+
+def try_claim_scrape(min_interval_seconds: int = 90) -> bool:
+    """Son taramadan bu yana `min_interval` geçtiyse taramayı ATOMİK olarak sahiplenir.
+
+    True dönerse çağıran tarama yapmalı; False ise (yakın zamanda tarandı ya da
+    başka worker sahiplendi) tarama atlanmalı.
+    """
+    return try_claim("last_scrape", min_interval_seconds)
 
 
 def get_article_count() -> int:

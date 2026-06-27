@@ -35,7 +35,10 @@ elif os.environ.get("ANTHROPIC_API_KEY"):
 else:
     PROVIDER = "gemini"
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+# flash-lite, ücretsiz katmanda daha yüksek günlük istek kotasına ve daha düşük
+# maliyete sahiptir; haber-manşeti çevirisi için kalitesi fazlasıyla yeterli.
+# GEMINI_MODEL ile ezilebilir (örn. faturalandırma açıksa "gemini-2.5-flash").
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-lite")
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8")
 
 # İstemciler tembel (lazy) kurulur: yalnızca kullanılan sağlayıcının paketi gerekir.

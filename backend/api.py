@@ -142,42 +142,6 @@ def list_sources() -> dict:
     return SOURCE_NAMES
 
 
-@app.get("/api/debug")
-def debug() -> dict:
-    """Çeviri (Gemini) durumunu teşhis eder; tek bir canlı test çevirisi dener.
-    Yalnızca teşhis amaçlı — sorun çözülünce kaldırılacak. Anahtar DEĞERİ
-    sızdırılmaz (yalnızca uzunluk + 4 karakterlik önek)."""
-    import translator
-    from scraper import RawArticle
-
-    gk = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
-    info: dict = {
-        "provider": translator.PROVIDER,
-        "llm_provider_env": os.environ.get("LLM_PROVIDER", ""),
-        "gemini_key_set": bool(gk),
-        "gemini_key_len": len(gk),
-        "gemini_key_prefix": gk[:4] if gk else "",
-        "anthropic_key_set": bool(os.environ.get("ANTHROPIC_API_KEY")),
-        "gemini_model": translator.GEMINI_MODEL,
-    }
-    try:
-        demo = RawArticle(
-            source_name="Test",
-            source_url="https://example.com/debug-test",
-            title="New reasoning models push the limits of inference-time compute",
-            content="A new generation of large language models can reason before answering.",
-            tags=["AI"],
-        )
-        t = translator.translate_article(demo)
-        info["test_translation"] = {"ok": True, "title_tr": t.title}
-    except Exception as exc:  # noqa: BLE001
-        info["test_translation"] = {
-            "ok": False,
-            "error": f"{type(exc).__name__}: {str(exc)[:400]}",
-        }
-    return info
-
-
 @app.get("/api/articles/{article_id}")
 def read_article(article_id: str) -> dict:
     """Tek bir makaleyi döndürür."""

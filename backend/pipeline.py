@@ -40,7 +40,7 @@ from scraper import (
     MAX_WORKERS,
 )
 from translator import translate_article
-from database import init_db, article_exists, save_article, save_columnists
+from database import init_db, article_exists, save_article, save_columnists, try_claim
 
 load_dotenv()  # .env içindeki ANTHROPIC_API_KEY'i yükle.
 
@@ -50,8 +50,14 @@ logger = logging.getLogger("singularity.pipeline")
 # AI_BUDGET: tek turda en çok bu kadar AI (Claude) çağrısı yapılır. 150+ kaynak
 # her 10 dakikada içeri aksa da, fatura bu sınırla öngörülebilir kalır. Ortamdan
 # (AI_BUDGET) ezilebilir; varsayılan 12 (tur başına 10–15 aralığında).
-AI_BUDGET = int(os.environ.get("AI_BUDGET", "12"))
+AI_BUDGET = int(os.environ.get("AI_BUDGET", "4"))
 HEADLINE_RANKS = 1    # Her beslemenin ilk N haberi "manşet" sayılır (AI'a gider).
+
+# AI çeviri kapısı: çeviri adımı en fazla bu kadar saniyede bir çalışır. Auto-scrape
+# her 90 sn'de dönse de, ücretsiz Gemini'nin küçük GÜNLÜK kotasını korumak için
+# çeviri SEYREK yapılır (varsayılan 20 dk = 1200 sn). AI_MIN_INTERVAL ile ezilebilir;
+# faturalandırma açıksa 0 yapıp her turda çevirebilirsiniz.
+AI_MIN_INTERVAL = int(os.environ.get("AI_MIN_INTERVAL", "1200"))
 
 
 def _should_use_ai(raw: RawArticle, ai_used: int) -> bool:
@@ -151,7 +157,19 @@ def run(per_feed: int = PER_FEED_DEFAULT) -> None:
                     failed += 1
     logger.info("Akışlı ham kayıt tamam: %d haber düştü.", processed_raw)
 
-    # 4) AI'a gidecek az sayıda manşeti zenginleştir + işle (yavaş, en sonda).
+    # 4) AI ÇEVİRİ — KOTA DOSTU KAPI. Ücretsiz Gemini'nin günlük kotası küçük
+    #    olduğundan çeviri en fazla AI_MIN_INTERVAL'da bir, az sayıda (AI_BUDGET)
+    #    manşet için yapılır. Kapı kapalıysa (yakın zamanda çevrildi / aday yok)
+    #    adaylar da ham kaydedilir; haber ÇÖPE ATILMAZ, yalnızca çevrilmeden düşer.
+    if not (ai_candidates and try_claim("last_ai", AI_MIN_INTERVAL)):
+        for raw in ai_candidates:
+            try:
+                _save_raw_passthrough(raw)
+                processed_raw += 1
+            except Exception:  # noqa: BLE001
+                failed += 1
+        ai_candidates = []  # Bu turda çeviri penceresi değil → AI adımı atlanır.
+
     enrich_many([r for r in ai_candidates if "news.google.com" not in (r.source_url or "")])
     for raw in ai_candidates:
         try:
