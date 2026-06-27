@@ -25,16 +25,19 @@ from __future__ import annotations
 import os
 import argparse
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from dotenv import load_dotenv
 
 from scraper import (
-    fetch_all_feeds,
+    fetch_feed_entries,
     enrich_many,
     is_clickbait,
     scrape_columnists,
     RawArticle,
     PER_FEED_DEFAULT,
+    FEEDS,
+    MAX_WORKERS,
 )
 from translator import translate_article
 from database import init_db, article_exists, save_article, save_columnists
@@ -111,37 +114,42 @@ def run(per_feed: int = PER_FEED_DEFAULT) -> None:
     processed_ai, processed_raw, skipped, failed = 0, 0, 0, 0
     ai_used = 0
 
-    # 1) PARALEL RSS taraması (timeout=7, kaynak başına 3 haber). Görsel de
-    #    RSS'ten çıkarılır; sayfa indirme YOK → çok hızlı.
-    raws = fetch_all_feeds(per_feed=per_feed)
-
-    # 2) Tekrarı ele (dedup).
-    fresh: list[RawArticle] = []
+    # 1) AKIŞLI TARAMA + ANINDA KAYIT. Her kaynak tamamlandıkça rutin haberleri
+    #    HEMEN ham kaydederiz; yalnızca az sayıdaki AI adayını (yabancı manşet /
+    #    Türkçe tık tuzağı) sona bırakırız.
+    #
+    #    Neden: Eski sürüm 297 kaynağın HEPSİNİ önce belleğe topluyordu
+    #    (fetch_all_feeds → ~750 haber RAM'de) ve ANCAK ondan sonra kaydediyordu.
+    #    Render'ın 512MB'ında bu ağır toplama adımı bitmeden çöküyor/donuyordu →
+    #    hiç kayıt olmadan ölüyordu → DB boş → "demo". Akışlı kayıtla haberler
+    #    saniyeler içinde düşer, tarama yarıda kesilse bile o ana dek
+    #    kaydedilenler kalır ve bellek düşük/sabit seyreder.
     seen: set[str] = set()
-    for raw in raws:
-        if not raw.source_url or raw.source_url in seen:
-            continue
-        seen.add(raw.source_url)
-        if article_exists(raw.source_url):
-            skipped += 1
-            continue
-        fresh.append(raw)
-
-    # 3) HIZLI ÖNCE-HAM KAYIT: AI'a gidecek az sayıda manşeti ayır; geri kalan
-    #    TÜM haberleri hemen ham kaydet → akış saniyeler içinde dolsun.
-    #    (Bütçe dolsa / tık tuzağı olmasa bile haber ÇÖPE ATILMAZ.)
     ai_candidates: list[RawArticle] = []
-    for raw in fresh:
-        if _should_use_ai(raw, len(ai_candidates)):
-            ai_candidates.append(raw)
-        else:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = [executor.submit(fetch_feed_entries, f, per_feed) for f in FEEDS]
+        for fut in as_completed(futures):
             try:
-                _save_raw_passthrough(raw)
-                processed_raw += 1
-            except Exception as exc:  # noqa: BLE001
-                logger.error("Ham kayıt başarısız (%s): %s", raw.title[:60], exc)
-                failed += 1
-    logger.info("Hızlı ham kayıt tamam: %d haber düştü.", processed_raw)
+                entries = fut.result()
+            except Exception:  # noqa: BLE001 — tek besleme hatası taramayı durdurmasın.
+                continue
+            for raw in entries:
+                if not raw.source_url or raw.source_url in seen:
+                    continue
+                seen.add(raw.source_url)
+                if article_exists(raw.source_url):
+                    skipped += 1
+                    continue
+                if _should_use_ai(raw, len(ai_candidates)):
+                    ai_candidates.append(raw)  # AI'a gidecek azınlık; sona bırakılır.
+                    continue
+                try:
+                    _save_raw_passthrough(raw)  # HEMEN kaydet → akış anında dolar.
+                    processed_raw += 1
+                except Exception as exc:  # noqa: BLE001
+                    logger.error("Ham kayıt başarısız (%s): %s", raw.title[:60], exc)
+                    failed += 1
+    logger.info("Akışlı ham kayıt tamam: %d haber düştü.", processed_raw)
 
     # 4) AI'a gidecek az sayıda manşeti zenginleştir + işle (yavaş, en sonda).
     enrich_many([r for r in ai_candidates if "news.google.com" not in (r.source_url or "")])

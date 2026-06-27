@@ -20,6 +20,7 @@ Kazıma, kaynakların robots.txt ve kullanım koşullarına saygı duyularak yap
 
 from __future__ import annotations
 
+import os
 import re
 import logging
 from dataclasses import dataclass, field
@@ -48,7 +49,9 @@ CATEGORIES = [
 ]
 
 # --- Eşzamanlılık ve kalkan ayarları ---
-MAX_WORKERS = 32          # Aynı anda en çok 32 paralel istek (hızlı fan-out).
+# Render free (512MB RAM) için düşük tutulur; SCRAPE_WORKERS ile ezilebilir.
+# Yüksek paralellik (32) belleği/CPU'yu şişirip taramayı yarıda çökertiyordu.
+MAX_WORKERS = int(os.environ.get("SCRAPE_WORKERS", "10"))
 REQUEST_TIMEOUT = 7       # Her HTTP isteği için sabit 7 sn timeout.
 PER_FEED_DEFAULT = 3      # Her kaynaktan yalnızca en yeni 3 haber.
 
