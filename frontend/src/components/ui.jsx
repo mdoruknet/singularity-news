@@ -87,7 +87,7 @@ export function AccountControl({ user, onOpenAuth, onLogout, onForYou, compact =
         className="inline-flex items-center gap-1.5 transition hover:text-black dark:hover:text-white"
         title="Bana Özel akışım"
       >
-        <Avatar src={user.avatar} name={user.name} size={20} />
+        <Avatar src={user.avatar} name={user.name} size={compact ? 17 : 20} />
         <span className="hidden max-w-[120px] truncate font-semibold normal-case tracking-normal sm:inline">
           {user.name}
         </span>

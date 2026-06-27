@@ -22,44 +22,40 @@ export function Masthead({
     <header className="sticky top-0 z-30 w-full sm:static">
       {/* === MOBİL (NYT tarzı): ☰ sol · Singularity orta · ikonlar sağ — YAPIŞKAN === */}
       <div className="safe-top border-b border-neutral-300 bg-white/95 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95 sm:hidden">
-        <div className="flex items-center justify-between px-3 py-2.5">
-          <button
-            onClick={onOpenPrefs}
-            aria-label="Menü"
-            title="Menü"
-            className="-ml-1 p-1 text-neutral-700 transition hover:text-black dark:text-neutral-300 dark:hover:text-white"
-          >
-            <Menu size={22} />
-          </button>
+        <div className="flex items-center justify-between px-3 py-2">
+          {/* SOL: menü (eşit genişlik → başlık tam ortada kalsın) */}
+          <div className="flex flex-1 justify-start">
+            <button
+              onClick={onOpenPrefs}
+              aria-label="Menü"
+              title="Menü"
+              className="-ml-1 p-1 text-neutral-700 transition hover:text-black dark:text-neutral-300 dark:hover:text-white"
+            >
+              <Menu size={22} />
+            </button>
+          </div>
+          {/* ORTA: logo + ince alt başlık */}
           <button
             onClick={goHome}
             aria-label="Singularity ana sayfa"
-            className="select-none"
+            className="flex shrink-0 select-none flex-col items-center leading-none"
           >
-            <span className="font-logo text-[1.7rem] leading-none text-black dark:text-white">
+            <span className="font-logo text-[1.55rem] leading-none text-black dark:text-white">
               Singularity
             </span>
+            <span className="mt-[3px] font-sans text-[7.5px] font-semibold uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-500">
+              Küresel Haber Ajansı
+            </span>
           </button>
-          <div className="flex items-center gap-3 text-neutral-700 dark:text-neutral-300">
-            <button
-              onClick={onRefreshFeed}
-              disabled={feedRefreshing}
-              aria-label="Akışı yenile"
-              title="Akışı yenile"
-              className={
-                "transition hover:text-black dark:hover:text-white " +
-                (feedRefreshing ? "text-blue-600 dark:text-blue-400" : "")
-              }
-            >
-              <RefreshCw size={19} className={feedRefreshing ? "animate-spin" : ""} />
-            </button>
+          {/* SAĞ: tema + hesap (yenile yok — aşağı çekerek yenileniyor) */}
+          <div className="flex flex-1 items-center justify-end gap-3 text-neutral-700 dark:text-neutral-300">
             <button
               onClick={onToggleTheme}
               aria-label="Açık / koyu tema"
               title="Açık / koyu tema"
               className="transition hover:text-black dark:hover:text-white"
             >
-              {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
             <AccountControl
               user={user}

@@ -173,7 +173,7 @@ export function PreferencesDrawer({
         aria-modal="true"
         aria-label="Akışımı özelleştir"
       >
-        <header className="flex items-start justify-between border-b border-neutral-300 px-5 py-4 dark:border-neutral-700">
+        <header className="flex items-start justify-between border-b border-neutral-300 px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] dark:border-neutral-700">
           <div>
             <Kicker>Tercihler</Kicker>
             <h2 className="mt-1 font-display text-2xl font-bold text-black dark:text-white">
