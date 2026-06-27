@@ -67,7 +67,12 @@ export function Avatar({ src, name, size = 56, className = "" }) {
   );
 }
 
-export function AccountControl({ user, onOpenAuth, onLogout, onForYou, compact = false }) {
+export function AccountControl({ user, onOpenAuth, onLogout, onForYou, compact = false, size }) {
+  // `size` verilirse kişi ikonu/avatar/çıkış, yanındaki diğer bar ikonlarıyla
+  // aynı boyutta olur (mobilde 18). Verilmezse eski varsayılanlar korunur.
+  const userIcon = size ?? 13;
+  const avatarSize = size ?? (compact ? 17 : 20);
+  const logoutSize = size ?? 14;
   if (!user) {
     return (
       <button
@@ -75,7 +80,7 @@ export function AccountControl({ user, onOpenAuth, onLogout, onForYou, compact =
         className="inline-flex items-center gap-1.5 font-semibold transition hover:text-black dark:hover:text-white"
         title="Giriş yap veya kayıt ol"
       >
-        <User size={13} />
+        <User size={userIcon} />
         <span className={compact ? "hidden sm:inline" : ""}>Giriş Yap</span>
       </button>
     );
@@ -87,7 +92,7 @@ export function AccountControl({ user, onOpenAuth, onLogout, onForYou, compact =
         className="inline-flex items-center gap-1.5 transition hover:text-black dark:hover:text-white"
         title="Bana Özel akışım"
       >
-        <Avatar src={user.avatar} name={user.name} size={compact ? 17 : 20} />
+        <Avatar src={user.avatar} name={user.name} size={avatarSize} />
         <span className="hidden max-w-[120px] truncate font-semibold normal-case tracking-normal sm:inline">
           {user.name}
         </span>
@@ -98,7 +103,7 @@ export function AccountControl({ user, onOpenAuth, onLogout, onForYou, compact =
         title="Çıkış yap"
         className="inline-flex items-center transition hover:text-black dark:hover:text-white"
       >
-        <LogOut size={14} />
+        <LogOut size={logoutSize} />
       </button>
     </span>
   );

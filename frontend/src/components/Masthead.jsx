@@ -63,6 +63,7 @@ export function Masthead({
               onLogout={onLogout}
               onForYou={onForYou}
               compact
+              size={18}
             />
           </div>
         </div>
