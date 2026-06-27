@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Routes,
   Route,
@@ -373,18 +373,32 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, JSON.stringify(prefs)]);
 
-  const openArticle = (id) => navigate(`/haber/${encodeURIComponent(id)}`);
-  const goHome = () => navigate("/");
-  const openColumnists = () => navigate("/kose-yazarlari");
-  const openColumn = (columnist, column) =>
-    navigate(`/kose/${columnist.slug}/${column.id}`);
-  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  const openArticle = useCallback(
+    (id) => navigate(`/haber/${encodeURIComponent(id)}`),
+    [navigate]
+  );
+  const goHome = useCallback(() => navigate("/"), [navigate]);
+  const openColumnists = useCallback(
+    () => navigate("/kose-yazarlari"),
+    [navigate]
+  );
+  const openColumn = useCallback(
+    (columnist, column) => navigate(`/kose/${columnist.slug}/${column.id}`),
+    [navigate]
+  );
+  const toggleTheme = useCallback(
+    () => setTheme((t) => (t === "dark" ? "light" : "dark")),
+    []
+  );
 
-  const selectCategory = (c) => {
-    setActiveCategory(c);
-    navigate("/");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  const selectCategory = useCallback(
+    (c) => {
+      setActiveCategory(c);
+      navigate("/");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [navigate]
+  );
 
   const togglePref = (key, value) =>
     setPrefs((p) => {

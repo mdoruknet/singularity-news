@@ -1,10 +1,11 @@
+import { memo } from "react";
 /* Ana sayfa kart türleri — manşet, sütun, ızgara, editör seçimi, boş durum, Bana Özel afişi. */
 
 import { Clock, Settings, Sparkles } from "lucide-react";
 import { Kicker, Byline } from "./ui.jsx";
 import { onImgError } from "../lib/utils.js";
 
-export function LeadStory({ article, onOpen }) {
+function LeadStoryImpl({ article, onOpen }) {
   return (
     <article className="flex flex-col">
       <Kicker className="mb-2">{article.kicker}</Kicker>
@@ -51,7 +52,7 @@ export function LeadStory({ article, onOpen }) {
   );
 }
 
-export function ColumnStory({ article, onOpen, withImage = false }) {
+function ColumnStoryImpl({ article, onOpen, withImage = false }) {
   return (
     <article className="flex flex-col">
       <Kicker className="mb-1.5">{article.category}</Kicker>
@@ -82,7 +83,7 @@ export function ColumnStory({ article, onOpen, withImage = false }) {
   );
 }
 
-export function GridCard({ article, onOpen }) {
+function GridCardImpl({ article, onOpen }) {
   return (
     <article className="flex flex-col">
       <button
@@ -111,7 +112,7 @@ export function GridCard({ article, onOpen }) {
   );
 }
 
-export function EditorsPick({ articles, onOpen }) {
+function EditorsPickImpl({ articles, onOpen }) {
   return (
     <div className="border border-black bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-800/60">
       <p className="rule-star mb-3 text-center font-sans text-[11px] font-bold uppercase tracking-[0.2em] text-black dark:text-white">
@@ -140,7 +141,7 @@ export function EditorsPick({ articles, onOpen }) {
 
 /* ------------------------------ ANA SAYFA ---------------------------------- */
 
-export function EmptyState({ onOpenPrefs }) {
+function EmptyStateImpl({ onOpenPrefs }) {
   return (
     <div className="mx-auto max-w-xl py-24 text-center">
       <p className="font-display text-2xl font-bold text-black dark:text-white">
@@ -159,7 +160,7 @@ export function EmptyState({ onOpenPrefs }) {
   );
 }
 
-export function ForYouBanner({ user }) {
+function ForYouBannerImpl({ user }) {
   return (
     <div className="border-b border-neutral-200 bg-amber-50/60 dark:border-neutral-800 dark:bg-amber-900/10">
       <div className="mx-auto flex max-w-[1280px] items-center gap-2 px-4 py-2.5 font-sans text-[12px] text-amber-800 dark:text-amber-300">
@@ -172,3 +173,10 @@ export function ForYouBanner({ user }) {
     </div>
   );
 }
+
+export const LeadStory = memo(LeadStoryImpl);
+export const ColumnStory = memo(ColumnStoryImpl);
+export const GridCard = memo(GridCardImpl);
+export const EditorsPick = memo(EditorsPickImpl);
+export const EmptyState = memo(EmptyStateImpl);
+export const ForYouBanner = memo(ForYouBannerImpl);
