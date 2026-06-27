@@ -20,6 +20,42 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import {
+  ALL_CATEGORIES,
+  SOURCE_GROUPS,
+  ALL_SOURCES,
+  DEFAULT_PREFS,
+  FOR_YOU,
+  THEME_KEY,
+  PREFS_KEY,
+  PREFS_VER_KEY,
+  PREFS_VERSION,
+  TOKEN_KEY,
+  FALLBACK_IMG,
+} from "./lib/constants.js";
+import {
+  todayLong,
+  initials,
+  safeParseBody,
+  normalizeArticle,
+  shuffleArr,
+  reshuffle,
+  sig,
+  isVisible,
+  loadPrefs,
+  loadTheme,
+  loadToken,
+  onImgError,
+} from "./lib/utils.js";
+import {
+  fetchArticles,
+  fetchColumnists,
+  fetchSources,
+  apiAuth,
+  apiMe,
+  apiSavePreferences,
+} from "./lib/api.js";
+
 /* ============================================================================
    SINGULARITY V2 — Kişiselleştirilebilir Küresel Haber Ajansı
    ----------------------------------------------------------------------------
@@ -29,80 +65,6 @@ import {
    Backend yoksa yerleşik demo içerikle çalışır.
    ========================================================================== */
 
-/* ----------------------------- SABİTLER ----------------------------------- */
-
-const ALL_CATEGORIES = [
-  "Gündem",
-  "Türkiye",
-  "Dünya",
-  "Ekonomi",
-  "Teknoloji",
-  "İş",
-  "Kültür Sanat",
-  "Edebiyat",
-  "Yaşam Tarzı",
-  "Spor",
-];
-
-// Backend scraper.py SOURCE_NAMES ile birebir aynı (filtre eşleşmesi için).
-const SOURCE_GROUPS = {
-  Türkiye: [
-    "Sözcü", "Hürriyet", "Sabah", "Milliyet", "Habertürk", "CNN Türk", "NTV",
-    "TRT Haber", "Cumhuriyet", "T24", "BBC TR", "Euronews TR", "Diken", "Mynet",
-    "Ensonhaber", "Haberler.com", "TGRT", "A Haber", "Yeni Şafak",
-    "Türkiye Gazetesi", "Akşam", "Karar", "OdaTV", "AA", "İHA", "DHA", "BirGün",
-    "Duvar", "Korkusuz", "Aydınlık", "Halk TV", "Tele1", "Dünya",
-    "Independent TR", "Onedio", "Memurlar.net", "Internet Haber",
-    "Gerçek Gündem", "Haber Global",
-    "Fanatik", "Fotomaç", "Sporx", "A Spor", "Ajansspor", "Fotospor",
-    "beIN Sports", "NTV Spor", "Sabah Spor", "CNN Türk Spor", "TRT Spor",
-    "Skorer", "Spor Arena", "Mackolik", "Tivibu Spor",
-  ],
-  Küresel: [
-    "NYT", "CNN", "BBC News", "Google News", "The Guardian", "Fox News",
-    "Washington Post", "USA Today", "NBC", "AP", "Bloomberg", "WSJ", "NY Post",
-    "Newsweek", "Axios", "Politico", "NPR", "CBS", "Sky News", "Independent",
-    "The Sun", "Mirror", "Metro UK", "Al Jazeera", "France 24", "Le Monde",
-    "Le Figaro", "Der Spiegel", "Die Welt", "El Mundo", "Corriere", "Repubblica",
-    "Jerusalem Post", "Euronews", "Reuters", "MSN", "ABC", "Telegraph",
-    "The Times", "Financial Times", "Daily Mail", "HuffPost", "Haaretz", "Bild",
-    "El País", "ESPN", "BBC Sport", "Sky Sports", "Marca", "AS", "L'Équipe",
-    "Gazzetta", "The Athletic", "Goal", "Bleacher Report", "Sports Illustrated",
-    "Fox Sports", "Eurosport",
-  ],
-  "Edebiyat & Kültür": [
-    "The New Yorker", "NY Review of Books", "The Paris Review",
-    "London Review of Books", "Granta", "ARTnews", "The Art Newspaper", "TLS",
-    "Artforum",
-  ],
-};
-const ALL_SOURCES = [
-  ...SOURCE_GROUPS.Türkiye,
-  ...SOURCE_GROUPS.Küresel,
-  ...SOURCE_GROUPS["Edebiyat & Kültür"],
-];
-
-// Kaynak tercihi "opt-out": hiddenSources = gizlenen kaynaklar. Boşsa hepsi
-// görünür. Böylece yeni eklenen yüzlerce kaynak otomatik görünür ve seçilebilir.
-const DEFAULT_PREFS = { categories: ALL_CATEGORIES, hiddenSources: [] };
-
-const FOR_YOU = "Bana Özel"; // Giriş yapmış kullanıcıya özel akış etiketi.
-
-const THEME_KEY = "singularity:theme";
-const PREFS_KEY = "singularity:prefs";
-const PREFS_VER_KEY = "singularity:prefs:v";
-const PREFS_VERSION = "6"; // Kaynak tercihi opt-out modeline geçti (göç tetikleyici).
-const TOKEN_KEY = "singularity:token";
-
-// Production'da Vercel/Render'da VITE_API_URL ile ezilir; yoksa yerel backend.
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const API_URL = `${API_BASE}/api/articles`;
-const AUTH_URL = `${API_BASE}/api/auth`;
-const COLUMNISTS_URL = `${API_BASE}/api/columnists`;
-const SOURCES_URL = `${API_BASE}/api/sources`;
-
-const FALLBACK_IMG =
-  "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80";
 
 /* ----------------------------- MOCK VERİ ---------------------------------- */
 /* Backend'deki çeviri/yeniden-yazım hattının üreteceği JSON'un simülasyonu. */
@@ -549,273 +511,6 @@ const MOCK_COLUMNISTS = [
 
 /* --------------------------- YARDIMCILAR ---------------------------------- */
 
-function todayLong() {
-  try {
-    return new Intl.DateTimeFormat("tr-TR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(new Date());
-  } catch {
-    return "Perşembe, 25 Haziran 2026";
-  }
-}
-
-function initials(name = "") {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "?";
-  return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
-}
-
-function safeParseBody(value) {
-  if (Array.isArray(value)) return value;
-  if (typeof value !== "string") return [];
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [value];
-  } catch {
-    return [value];
-  }
-}
-
-/* API ister zengin şemamızı, ister ham şemayı döndürsün — tek biçime indirger. */
-function normalizeArticle(a) {
-  return {
-    id: a.id != null ? String(a.id) : a.source_url || a.title,
-    lead: Boolean(a.lead),
-    category: a.category || "Gündem",
-    kicker: a.kicker || a.category || "Gündem",
-    title: a.title || "",
-    dek: a.dek || "",
-    author:
-      a.author ||
-      (a.rewritten
-        ? "Yeniden Yazım: Singularity AI Bot"
-        : "Çeviri: Singularity AI Bot"),
-    rewritten:
-      Boolean(a.rewritten) ||
-      (typeof a.author === "string" && a.author.includes("Yeniden Yazım")),
-    originalTitle: a.originalTitle || a.original_title || "",
-    date: a.date || "",
-    readTime:
-      a.readTime ||
-      (a.read_time_minutes
-        ? `${a.read_time_minutes} dk okuma`
-        : "Yapay zeka derlemesi"),
-    image: a.image || a.image_url || FALLBACK_IMG,
-    imageCaption: a.imageCaption || a.image_caption || "",
-    imageCredit:
-      a.imageCredit ||
-      (a.source_name ? `Fotoğraf: ${a.source_name}` : "Fotoğraf: Kaynak"),
-    source: a.source || { name: a.source_name || "Kaynak", url: a.source_url || "#" },
-    body: safeParseBody(a.body),
-  };
-}
-
-/* Bir diziyi (kopyasını) karıştırır — yenilemede gözle görülür değişim için. */
-function shuffleArr(list) {
-  const a = [...list];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-/* Akışı yeniden sıralar (manşet dahil). `lead` bayrağı sıfırlanır ki
-   karıştırmadan sonra ilk haber yeni manşet olsun. */
-function reshuffle(list) {
-  return shuffleArr(list.map((x) => ({ ...x, lead: false })));
-}
-
-/* Sıra-bağımsız içerik imzası — yeni haber gelip gelmediğini anlamak için. */
-function sig(list) {
-  return [...new Set(list.map((a) => a.id))].sort().join("|");
-}
-
-/* --------------------------------------------------------------------------- */
-/*  DAYANIKLI AĞ KATMANI — timeout (AbortController) + exponential backoff retry. */
-/*  Geçici hatalar (ağ kopması, zaman aşımı, 429, 5xx) yeniden denenir; kalıcı   */
-/*  hatalar (4xx; 401/404/409 vb.) çağırana olduğu gibi döner. Render free-tier  */
-/*  ~50 sn soğuk başlangıcını ve anlık dalgalanmaları tolere eder.                */
-/* --------------------------------------------------------------------------- */
-const _sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
-
-function _backoffDelay(attempt, retryAfter) {
-  const ra = retryAfter ? parseInt(retryAfter, 10) : NaN;
-  if (!Number.isNaN(ra)) return Math.min(ra * 1000, 15000); // sunucunun Retry-After'ına saygı
-  const base = 500 * 2 ** attempt; // 500, 1000, 2000, 4000…
-  return Math.min(base + Math.random() * 300, 8000); // jitter + tavan
-}
-
-async function apiFetch(url, { retries = 3, timeoutMs = 25000, ...options } = {}) {
-  let lastErr;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, { ...options, signal: ctrl.signal });
-      clearTimeout(timer);
-      // Başarılı, kalıcı hata ya da son deneme → çağırana ver (yorumlamak ona kalsın).
-      if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt === retries) {
-        return res;
-      }
-      await _sleep(_backoffDelay(attempt, res.headers.get("Retry-After")));
-    } catch (err) {
-      clearTimeout(timer); // ağ hatası ya da zaman aşımı (abort)
-      lastErr = err;
-      if (attempt === retries) throw err;
-      await _sleep(_backoffDelay(attempt));
-    }
-  }
-  throw lastErr;
-}
-
-/* Canlı API'den (varsa) tercihlere göre haberleri çeker. Kaynak filtresi
-   istemci tarafında (opt-out) yapılır; sunucudan geniş bir liste çekilir. */
-async function fetchArticles(prefs) {
-  const params = new URLSearchParams();
-  if (
-    prefs?.categories?.length &&
-    prefs.categories.length < ALL_CATEGORIES.length
-  ) {
-    params.set("categories", prefs.categories.join(","));
-  }
-  // Geniş çek: seyrek kategoriler (örn. Türkiye) "en yeni N" penceresinden
-  // taşmasın diye yüksek tutulur; kategori sekmeleri istemci tarafında filtrelenir.
-  params.set("limit", "500");
-  const res = await apiFetch(`${API_URL}?${params.toString()}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  const list = Array.isArray(json) ? json : json?.data ?? [];
-  return list.map(normalizeArticle);
-}
-
-/* Köşe yazarlarını API'den çeker. */
-async function fetchColumnists() {
-  const res = await apiFetch(COLUMNISTS_URL);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  return Array.isArray(json) ? json : [];
-}
-
-/* Kaynak gruplarını (bölgeye göre) API'den çeker; filtreyi dinamik doldurur. */
-async function fetchSources() {
-  const res = await apiFetch(SOURCES_URL);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  return json && typeof json === "object" ? json : null;
-}
-
-/* -------- Auth API yardımcıları -------- */
-async function apiAuth(path, body) {
-  const res = await apiFetch(`${AUTH_URL}/${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    retries: 1, // mutasyon: soğuk başlangıç için tek yeniden deneme yeterli
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || "İşlem başarısız.");
-  return data;
-}
-
-async function apiMe(token) {
-  const res = await apiFetch(`${AUTH_URL}/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-    retries: 2,
-  });
-  if (!res.ok) throw new Error("Oturum geçersiz");
-  return res.json();
-}
-
-async function apiSavePreferences(token, prefs) {
-  await apiFetch(`${AUTH_URL}/preferences`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      categories: prefs.categories,
-      sources: [],
-    }),
-    retries: 1,
-  }).catch(() => {});
-}
-
-/* Tercihler + aktif kategori filtresine göre görünürlük (kaynak: opt-out). */
-function isVisible(a, prefs, activeCategory, user) {
-  const hidden = prefs.hiddenSources || [];
-  const srcOK = !hidden.includes(a.source?.name);
-
-  if (activeCategory === FOR_YOU) {
-    const cats = user?.preferences?.categories;
-    const catOK =
-      Array.isArray(cats) && cats.length ? cats.includes(a.category) : true;
-    return catOK && srcOK;
-  }
-
-  const knownCat = ALL_CATEGORIES.includes(a.category);
-  const catOK = activeCategory
-    ? a.category === activeCategory
-    : !knownCat || prefs.categories.includes(a.category);
-  return catOK && srcOK;
-}
-
-function loadPrefs() {
-  try {
-    const raw = localStorage.getItem(PREFS_KEY);
-    if (raw) {
-      const p = JSON.parse(raw);
-      const ver = localStorage.getItem(PREFS_VER_KEY);
-      const categories = Array.isArray(p.categories)
-        ? p.categories.filter((c) => ALL_CATEGORIES.includes(c))
-        : DEFAULT_PREFS.categories;
-      // Opt-out modeli: eski sürümden (sources=seçili) gelenlerde gizli liste
-      // sıfırlanır → tüm kaynaklar (yenileri dahil) görünür kalır.
-      const hiddenSources =
-        ver !== PREFS_VERSION || !Array.isArray(p.hiddenSources)
-          ? []
-          : p.hiddenSources;
-      return {
-        categories: categories.length ? categories : DEFAULT_PREFS.categories,
-        hiddenSources,
-      };
-    }
-  } catch {
-    /* yoksay */
-  }
-  return DEFAULT_PREFS;
-}
-
-function loadTheme() {
-  try {
-    const t = localStorage.getItem(THEME_KEY);
-    if (t === "light" || t === "dark") return t;
-  } catch {
-    /* yoksay */
-  }
-  return typeof window !== "undefined" &&
-    window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
-function loadToken() {
-  try {
-    return localStorage.getItem(TOKEN_KEY) || null;
-  } catch {
-    return null;
-  }
-}
-
-const onImgError = (e) => {
-  if (e.currentTarget.src !== FALLBACK_IMG) e.currentTarget.src = FALLBACK_IMG;
-};
 
 /* ------------------------------ META --------------------------------------- */
 
