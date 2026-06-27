@@ -1519,7 +1519,7 @@ function ForYouBanner({ user }) {
   );
 }
 
-function HomePage({ articles, onOpen, onOpenPrefs }) {
+function HomePage({ articles, onOpen, onOpenPrefs, activeCategory }) {
   if (!articles.length) return <EmptyState onOpenPrefs={onOpenPrefs} />;
 
   const lead = articles.find((a) => a.lead) || articles[0];
@@ -1545,7 +1545,7 @@ function HomePage({ articles, onOpen, onOpenPrefs }) {
               <ColumnStory article={a} onOpen={onOpen} />
             </div>
           ))}
-          {leftCol.length > 0 && (
+          {leftCol.length > 0 && activeCategory === "Ekonomi" && (
             <div className="border-t border-neutral-200 pt-6 dark:border-neutral-800">
               <Kicker className="mb-2">Piyasa Notu</Kicker>
               <p className="font-serif text-[14px] leading-relaxed text-neutral-700 dark:text-neutral-400">
@@ -2739,6 +2739,7 @@ export default function App() {
       ) : (
         <HomePage
           articles={visible}
+          activeCategory={activeCategory}
           onOpen={openArticle}
           onOpenPrefs={() => setDrawerOpen(true)}
         />
