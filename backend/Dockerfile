@@ -20,5 +20,7 @@ RUN mkdir -p /data
 
 EXPOSE 8000
 
-# 4 worker ile production sunumu (cron API'de DEĞİL; ayrı scheduler servisinde)
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Worker sayısı WEB_CONCURRENCY ile ayarlanır; Render free (512MB RAM) için
+# varsayılan 1'dir (4 worker OOM'a yol açar). Daha güçlü planda artırılabilir.
+ENV WEB_CONCURRENCY=1
+CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-1}"]
