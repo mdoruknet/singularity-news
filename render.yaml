@@ -25,6 +25,11 @@ services:
       # Anthropic anahtarı (yalnızca LLM_PROVIDER=anthropic ise gerekir, opsiyonel).
       - key: ANTHROPIC_API_KEY
         sync: false
+      # POST /api/refresh gizli anahtarı (opsiyonel ama önerilir): tanımlıysa bu
+      # uç "X-Refresh-Secret" / "Authorization: Bearer" başlığı ister; böylece
+      # kötü niyetli tetiklemeler tarama+çeviri maliyetini şişiremez. Boşsa açık.
+      - key: REFRESH_SECRET
+        sync: false # Render dashboard'dan manuel girilecek (örn. uzun rastgele dize)
 
   # 2. FRONTEND (React Static Site - ÜCRETSİZ)
   - type: web

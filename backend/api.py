@@ -12,12 +12,13 @@ Uç noktalar:
 
 from __future__ import annotations
 
+import hmac
 import os
 import re
 import uuid
 import threading
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -56,6 +57,30 @@ app = FastAPI(title="Singularity API", version="1.0.0")
 # tarama başlatıyor, taramalar üst üste binip 512MB'lık kutuyu çökertiyordu.
 # Damga tarama BAŞINDA atıldığından, güvenli pencere için varsayılan 600sn.
 AUTO_SCRAPE_INTERVAL = int(os.environ.get("AUTO_SCRAPE_INTERVAL", "600"))
+
+# Maliyet/DoS koruması: POST /api/refresh tüm hattı (tarama + çeviri) anında ve
+# throttle'sız çalıştırır; dışa açık kalırsa kötü niyetli biri ardı ardına
+# tetikleyip 512MB'lık ücretsiz kutuyu çökertebilir ya da çeviri kotasını
+# tüketebilir. REFRESH_SECRET tanımlıysa bu uç eşleşen bir gizli anahtar başlığı
+# (X-Refresh-Secret ya da "Authorization: Bearer <secret>") ister. Tanımlı
+# değilse uç açık kalır → yerel geliştirme esnekliği. Frontend bu ucu HİÇ
+# çağırmaz (kullanıcı "yenile"si throttle'lı GET /api/articles yolundan gider),
+# dolayısıyla kilitlemek arayüzü bozmaz; yalnızca cron/yönetici erişir.
+REFRESH_SECRET = os.environ.get("REFRESH_SECRET", "").strip()
+
+
+def require_refresh_secret(
+    x_refresh_secret: str | None = Header(default=None, alias="X-Refresh-Secret"),
+    authorization: str | None = Header(default=None),
+) -> None:
+    """REFRESH_SECRET tanımlıysa eşleşen anahtarı zorunlu kılar (yoksa serbest)."""
+    if not REFRESH_SECRET:
+        return  # Anahtar tanımlı değil → yerel/geliştirme: uç açık.
+    supplied = x_refresh_secret
+    if not supplied and authorization and authorization.lower().startswith("bearer "):
+        supplied = authorization[7:].strip()
+    if not supplied or not hmac.compare_digest(supplied, REFRESH_SECRET):
+        raise HTTPException(status_code=401, detail="Geçersiz veya eksik yenileme anahtarı.")
 
 
 def _safe_pipeline_run() -> None:
@@ -165,7 +190,11 @@ def _pipeline_job(job_id: str, per_feed: int) -> None:
 
 
 @app.post("/api/refresh")
-def refresh(background_tasks: BackgroundTasks, per_feed: int = 4) -> dict:
+def refresh(
+    background_tasks: BackgroundTasks,
+    per_feed: int = 4,
+    _: None = Depends(require_refresh_secret),
+) -> dict:
     """Çeviri hattını arka planda tetikler ve takip için bir job_id döndürür."""
     job_id = str(uuid.uuid4())
     create_job(job_id)  # 'running' olarak diske yazılır; tüm worker'lar görür.
