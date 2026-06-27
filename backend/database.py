@@ -47,6 +47,12 @@ CREATE TABLE IF NOT EXISTS jobs (
     updated_at TEXT
 );
 
+-- Basit anahtar/değer durum tablosu (örn. son otomatik tarama zaman damgası).
+CREATE TABLE IF NOT EXISTS app_state (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
+
 -- Kullanıcı hesapları (JWT auth). preferences JSON olarak saklanır.
 CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -300,6 +306,52 @@ def get_job_status(job_id: str) -> str:
             "SELECT status FROM jobs WHERE job_id = ?", (job_id,)
         ).fetchone()
         return row["status"] if row else "not_found"
+
+
+# --------------------------------------------------------------------------- #
+#  Otomatik tarama kilidi — birden çok worker'ın aynı anda taramasını önler.
+# --------------------------------------------------------------------------- #
+
+
+def try_claim_scrape(min_interval_seconds: int = 90) -> bool:
+    """Son taramadan bu yana `min_interval` geçtiyse taramayı ATOMİK olarak sahiplenir.
+
+    True dönerse çağıran tarama yapmalı; False ise (yakın zamanda tarandı ya da
+    başka worker sahiplendi) tarama atlanmalı. SQLite BEGIN IMMEDIATE ile worker'lar
+    arası yarış önlenir.
+    """
+    now = datetime.now(timezone.utc).timestamp()
+    conn = sqlite3.connect(DB_PATH, timeout=2.0)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT value FROM app_state WHERE key = 'last_scrape'"
+        ).fetchone()
+        last = float(row["value"]) if row and row["value"] else 0.0
+        if now - last < min_interval_seconds:
+            conn.execute("ROLLBACK")
+            return False
+        conn.execute(
+            "INSERT OR REPLACE INTO app_state (key, value) VALUES ('last_scrape', ?)",
+            (str(now),),
+        )
+        conn.execute("COMMIT")
+        return True
+    except sqlite3.OperationalError:
+        # Başka bir worker kilidi tutuyor → bu tur atlanır.
+        try:
+            conn.execute("ROLLBACK")
+        except sqlite3.Error:
+            pass
+        return False
+    finally:
+        conn.close()
+
+
+def get_article_count() -> int:
+    with _connect() as conn:
+        return conn.execute("SELECT COUNT(*) AS n FROM articles").fetchone()["n"]
 
 
 # --------------------------------------------------------------------------- #

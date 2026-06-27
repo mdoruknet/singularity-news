@@ -48,7 +48,7 @@ CATEGORIES = [
 ]
 
 # --- Eşzamanlılık ve kalkan ayarları ---
-MAX_WORKERS = 20          # Aynı anda en çok 20 paralel istek.
+MAX_WORKERS = 32          # Aynı anda en çok 32 paralel istek (hızlı fan-out).
 REQUEST_TIMEOUT = 7       # Her HTTP isteği için sabit 7 sn timeout.
 PER_FEED_DEFAULT = 3      # Her kaynaktan yalnızca en yeni 3 haber.
 
@@ -696,10 +696,33 @@ class RawArticle:
     feed_rank: int = 0        # beslemedeki sıra (0 = besleme manşeti)
 
 
+def _image_from_entry(entry, summary_html: str) -> str | None:
+    """RSS girdisinden görseli SAYFA İNDİRMEDEN çıkarır (hız için).
+
+    media:thumbnail / media:content / enclosure / <img> sırasıyla denenir.
+    """
+    for key in ("media_thumbnail", "media_content"):
+        media = entry.get(key)
+        if media and isinstance(media, list) and media[0].get("url"):
+            return media[0]["url"]
+    for link in entry.get("links", []) or []:
+        if link.get("rel") == "enclosure" and str(link.get("type", "")).startswith("image"):
+            return link.get("href")
+    for enc in entry.get("enclosures", []) or []:
+        if str(enc.get("type", "")).startswith("image") and enc.get("href"):
+            return enc.get("href")
+    if summary_html and "<img" in summary_html:
+        m = re.search(r'<img[^>]+src=["\\\']([^"\\\']+)', summary_html)
+        if m:
+            return m.group(1)
+    return None
+
+
 def fetch_feed_entries(feed: dict[str, str], limit: int = PER_FEED_DEFAULT) -> list[RawArticle]:
     """Tek bir beslemeden en yeni `limit` haberi RawArticle olarak döndürür.
 
-    HTTP timeout=7; hata/yavaşlık durumunda boş liste döner (sessizce atlanır).
+    Görsel de RSS'ten (sayfa indirmeden) çıkarılır → hızlı. HTTP timeout=7;
+    hata/yavaşlık durumunda boş liste döner (sessizce atlanır).
     """
     try:
         resp = requests.get(feed["url"], headers=HEADERS, timeout=REQUEST_TIMEOUT)
@@ -711,7 +734,8 @@ def fetch_feed_entries(feed: dict[str, str], limit: int = PER_FEED_DEFAULT) -> l
 
     articles: list[RawArticle] = []
     for rank, entry in enumerate(parsed.entries[:limit]):  # SADECE en yeni 3.
-        summary = BeautifulSoup(entry.get("summary", ""), "html.parser").get_text(" ", strip=True)
+        summary_html = entry.get("summary", "")
+        summary = BeautifulSoup(summary_html, "html.parser").get_text(" ", strip=True)
         tags = [t.get("term", "") for t in entry.get("tags", [])] if entry.get("tags") else []
         articles.append(
             RawArticle(
@@ -721,6 +745,7 @@ def fetch_feed_entries(feed: dict[str, str], limit: int = PER_FEED_DEFAULT) -> l
                 region=feed.get("region", ""),
                 category=feed.get("category", ""),
                 summary=summary,
+                image_url=_image_from_entry(entry, summary_html),
                 published=entry.get("published", entry.get("updated")),
                 tags=[t for t in tags if t],
                 feed_rank=rank,

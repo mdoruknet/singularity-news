@@ -111,10 +111,11 @@ def run(per_feed: int = PER_FEED_DEFAULT) -> None:
     processed_ai, processed_raw, skipped, failed = 0, 0, 0, 0
     ai_used = 0
 
-    # 1) PARALEL RSS taraması (150+ kaynak, timeout=7, kaynak başına 3 haber).
+    # 1) PARALEL RSS taraması (timeout=7, kaynak başına 3 haber). Görsel de
+    #    RSS'ten çıkarılır; sayfa indirme YOK → çok hızlı.
     raws = fetch_all_feeds(per_feed=per_feed)
 
-    # 2) Tekrarı ÖNCE ele (zenginleştirmeden önce dedup → boşuna sayfa indirme yok).
+    # 2) Tekrarı ele (dedup).
     fresh: list[RawArticle] = []
     seen: set[str] = set()
     for raw in raws:
@@ -126,54 +127,59 @@ def run(per_feed: int = PER_FEED_DEFAULT) -> None:
             continue
         fresh.append(raw)
 
-    # 3) Yalnızca YENİ ve Google-News-dışı makaleleri PARALEL zenginleştir
-    #    (Google News linkleri yönlendirme olduğundan og:image/gövde vermez).
-    enrich_many([r for r in fresh if "news.google.com" not in (r.source_url or "")])
-
-    # 4) Her makale için karar: AI'a mı, ham mı?
+    # 3) HIZLI ÖNCE-HAM KAYIT: AI'a gidecek az sayıda manşeti ayır; geri kalan
+    #    TÜM haberleri hemen ham kaydet → akış saniyeler içinde dolsun.
+    #    (Bütçe dolsa / tık tuzağı olmasa bile haber ÇÖPE ATILMAZ.)
+    ai_candidates: list[RawArticle] = []
     for raw in fresh:
-        if _should_use_ai(raw, ai_used):
-            try:
-                translated = translate_article(raw)
-                ai_used += 1
-            except Exception as exc:  # noqa: BLE001 — tek hata tüm hattı durdurmasın.
-                logger.error("AI işleme başarısız (%s): %s", raw.title[:60], exc)
-                failed += 1
-                continue
-
-            article_id = save_article(
-                source_url=raw.source_url,
-                source_name=raw.source_name,
-                original_title=raw.title,
-                category=translated.category,
-                kicker=translated.kicker,
-                title=translated.title,
-                dek=translated.dek,
-                read_time=f"{translated.read_time_minutes} dk okuma",
-                image=raw.image_url,
-                image_caption=translated.image_caption,
-                image_credit=f"Fotoğraf: {raw.source_name}",
-                body=translated.body,
-                rewritten=translated.rewritten,
-                author=(
-                    "Yeniden Yazım: Singularity AI Bot"
-                    if translated.rewritten
-                    else "Çeviri: Singularity AI Bot"
-                ),
-            )
-            logger.info("AI ile kaydedildi: %s (%s)", translated.title[:60], article_id)
-            processed_ai += 1
+        if _should_use_ai(raw, len(ai_candidates)):
+            ai_candidates.append(raw)
         else:
-            # Ucuz kol: AI'sız, ham kayıt (rutin haber / skor). Bütçe dolsa veya
-            # tık tuzağı olmasa bile haber ÇÖPE ATILMAZ; rewritten=False kaydedilir.
             try:
-                article_id = _save_raw_passthrough(raw)
+                _save_raw_passthrough(raw)
+                processed_raw += 1
             except Exception as exc:  # noqa: BLE001
                 logger.error("Ham kayıt başarısız (%s): %s", raw.title[:60], exc)
                 failed += 1
-                continue
-            logger.info("Ham kaydedildi (AI'sız): %s (%s)", raw.title[:60], article_id)
-            processed_raw += 1
+    logger.info("Hızlı ham kayıt tamam: %d haber düştü.", processed_raw)
+
+    # 4) AI'a gidecek az sayıda manşeti zenginleştir + işle (yavaş, en sonda).
+    enrich_many([r for r in ai_candidates if "news.google.com" not in (r.source_url or "")])
+    for raw in ai_candidates:
+        try:
+            translated = translate_article(raw)
+            ai_used += 1
+        except Exception as exc:  # noqa: BLE001 — tek hata tüm hattı durdurmasın.
+            logger.error("AI işleme başarısız (%s): %s", raw.title[:60], exc)
+            try:
+                _save_raw_passthrough(raw)  # çöpe atma: ham kaydet.
+                processed_raw += 1
+            except Exception:  # noqa: BLE001
+                failed += 1
+            continue
+
+        article_id = save_article(
+            source_url=raw.source_url,
+            source_name=raw.source_name,
+            original_title=raw.title,
+            category=translated.category,
+            kicker=translated.kicker,
+            title=translated.title,
+            dek=translated.dek,
+            read_time=f"{translated.read_time_minutes} dk okuma",
+            image=raw.image_url,
+            image_caption=translated.image_caption,
+            image_credit=f"Fotoğraf: {raw.source_name}",
+            body=translated.body,
+            rewritten=translated.rewritten,
+            author=(
+                "Yeniden Yazım: Singularity AI Bot"
+                if translated.rewritten
+                else "Çeviri: Singularity AI Bot"
+            ),
+        )
+        logger.info("AI ile kaydedildi: %s (%s)", translated.title[:60], article_id)
+        processed_ai += 1
 
     # 5) Gerçek köşe yazarlarının gerçek yazılarını da tazele (AI yok).
     try:

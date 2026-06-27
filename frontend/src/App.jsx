@@ -631,6 +631,11 @@ function reshuffle(list) {
   return shuffleArr(list.map((x) => ({ ...x, lead: false })));
 }
 
+/* Sıra-bağımsız içerik imzası — yeni haber gelip gelmediğini anlamak için. */
+function sig(list) {
+  return [...new Set(list.map((a) => a.id))].sort().join("|");
+}
+
 /* Canlı API'den (varsa) tercihlere göre haberleri çeker. Kaynak filtresi
    istemci tarafında (opt-out) yapılır; sunucudan geniş bir liste çekilir. */
 async function fetchArticles(prefs) {
@@ -2209,8 +2214,11 @@ export default function App() {
   const [infoTitle, setInfoTitle] = useState(null); // Footer bilgi modalı
   const [feedRefreshing, setFeedRefreshing] = useState(false); // akış yenileme
   const [pullView, setPullView] = useState(0); // aşağı-çekme mesafesi (px)
+  const [polling, setPolling] = useState(false); // taze haber yoklanıyor
 
   const refreshJobRef = useRef(null);
+  const articlesSigRef = useRef(""); // son canlı içerik imzası
+  const pollTimerRef = useRef(null);
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
   const tokenRef = useRef(token);
@@ -2248,6 +2256,7 @@ export default function App() {
     fetchArticles(prefsRef.current)
       .then((list) => {
         if (!cancelled && list.length) {
+          articlesSigRef.current = sig(list);
           setArticles(list);
           setLive(true);
         }
@@ -2256,7 +2265,11 @@ export default function App() {
         /* Backend yoksa demo içeriğe düşülür. */
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          // Backend uyanırken taze haberleri arka planda tarıyor; yoklamaya başla.
+          startPolling();
+        }
       });
 
     // Köşe yazarlarını da çekmeyi dene (başarısızsa mock kalır).
@@ -2275,6 +2288,7 @@ export default function App() {
 
     return () => {
       cancelled = true;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     };
   }, []);
 
@@ -2313,29 +2327,73 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [view, activeId, activeColumn]);
 
-  // Akışı yenile: canlıysa API'den taze haberleri çek, değilse demo'yu tazele.
+  // Backend taze haberleri arka planda tarar; biz birkaç saniyede bir yoklayıp
+  // (polling) yeni içerik düşünce akışı otomatik güncelleriz.
+  const startPolling = () => {
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    let tries = 0;
+    let netErrors = 0;
+    const MAX = 10;
+    const EVERY = 5000;
+    setPolling(true);
+    const stop = () => {
+      setPolling(false);
+      pollTimerRef.current = null;
+    };
+    const tick = async () => {
+      tries += 1;
+      let ok = false;
+      try {
+        const list = await fetchArticles(prefsRef.current);
+        ok = true;
+        if (list.length && sig(list) !== articlesSigRef.current) {
+          articlesSigRef.current = sig(list);
+          setArticles(reshuffle(list));
+          setLive(true);
+          try {
+            const cols = await fetchColumnists();
+            if (cols.length) setColumnists(cols);
+          } catch {
+            /* yoksay */
+          }
+          setToast("Yeni haberler akışa düştü.");
+          setTimeout(() => setToast(""), 2500);
+        }
+      } catch {
+        netErrors += 1; // backend yoksa erken dur (demo modunda boşuna yoklama yok)
+      }
+      if (!ok && netErrors >= 2) return stop();
+      if (tries < MAX) pollTimerRef.current = setTimeout(tick, EVERY);
+      else stop();
+    };
+    pollTimerRef.current = setTimeout(tick, EVERY);
+  };
+
+  // Akışı yenile: her zaman canlıyı dene (sunucuda taze tarama tetiklenir),
+  // sonuç gelene kadar da yoklamayı (polling) başlat.
   const refreshFeed = async () => {
     if (feedRefreshing) return;
     setFeedRefreshing(true);
     try {
-      if (liveRef.current) {
-        // En güncel haberleri çek, sonra gözle görülür tazelik için yeniden sırala.
-        const list = await fetchArticles(prefsRef.current);
-        if (list.length) setArticles(reshuffle(list));
+      const list = await fetchArticles(prefsRef.current).catch(() => []);
+      if (list.length) {
+        articlesSigRef.current = sig(list);
+        setArticles(reshuffle(list));
+        setLive(true);
         try {
           const cols = await fetchColumnists();
           if (cols.length) setColumnists(shuffleArr(cols));
         } catch {
           /* yoksay */
         }
+        setToast("Akış yenilendi.");
       } else {
-        // Demo: aynı veri döndüğü için akışı + köşe yazarlarını yeniden sırala.
+        // Henüz canlı haber yok: demo'yu tazele, sunucu taramasını yoklamaya başla.
         setArticles(reshuffle(MOCK_ARTICLES.map(normalizeArticle)));
         setColumnists((prev) => shuffleArr(prev));
+        setToast("Taze haberler getiriliyor…");
       }
-      setToast("Akış yenilendi.");
-    } catch {
-      setToast("Akış yenilenemedi. Bağlantınızı kontrol edin.");
+      startPolling();
     } finally {
       setFeedRefreshing(false);
       setTimeout(() => setToast(""), 2500);
@@ -2724,6 +2782,13 @@ export default function App() {
       {toast && (
         <div className="toast-in fixed bottom-6 right-6 z-[60] max-w-sm bg-black px-6 py-3 font-sans text-sm tracking-wide text-white shadow-2xl dark:bg-white dark:text-black">
           {toast}
+        </div>
+      )}
+
+      {polling && (
+        <div className="fixed bottom-6 left-6 z-[55] inline-flex items-center gap-2 rounded-full bg-black/85 px-3 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-white shadow-lg backdrop-blur dark:bg-white/90 dark:text-black">
+          <Loader2 size={13} className="animate-spin" />
+          Taze haberler aranıyor…
         </div>
       )}
     </div>

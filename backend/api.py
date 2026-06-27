@@ -36,6 +36,7 @@ from database import (
     get_all_columns,
     get_column,
     save_columnists,
+    try_claim_scrape,
 )
 from scraper import COLUMNISTS, scrape_columnists, SOURCE_NAMES
 from auth import (
@@ -47,6 +48,23 @@ from auth import (
 from pipeline import run as run_pipeline
 
 app = FastAPI(title="Singularity API", version="1.0.0")
+
+# Otomatik tarama: son taramadan bu kadar saniye geçtiyse, gelen istek arka
+# planda yeni bir tarama tetikler (trafik-tetiklemeli; Render free için ideal).
+AUTO_SCRAPE_INTERVAL = int(os.environ.get("AUTO_SCRAPE_INTERVAL", "90"))
+
+
+def _safe_pipeline_run() -> None:
+    try:
+        run_pipeline()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _maybe_scrape(min_interval: int = AUTO_SCRAPE_INTERVAL) -> None:
+    """Tarama yeterince eskiyse, arka planda (bloklamadan) yeni tarama başlatır."""
+    if try_claim_scrape(min_interval):
+        threading.Thread(target=_safe_pipeline_run, daemon=True).start()
 
 # CORS sıkılaştırma: izinli kaynaklar .env'deki ALLOWED_ORIGINS'ten (virgülle
 # ayrılmış) okunur. Tanımlı değilse güvenli yerel varsayılanlara düşülür.
@@ -84,6 +102,9 @@ def _startup() -> None:
     # arka planda topla.
     save_columnists([{**c, "columns": []} for c in COLUMNISTS])
     threading.Thread(target=_refresh_columnists_bg, daemon=True).start()
+    # Açılışta (servis uyandığında) hemen bir tarama başlat: veritabanı boşsa
+    # taze haberler kısa sürede dolsun.
+    _maybe_scrape()
 
 
 def _split_csv(value: str | None) -> list[str] | None:
@@ -102,8 +123,12 @@ def list_articles(
 ) -> list[dict]:
     """Tercihlere göre filtrelenmiş makale listesini döndürür.
 
+    Her istek, tarama eskiyse arka planda taze bir tarama tetikler (debounce'lu);
+    böylece sayfa yenilendikçe yeni haberler kısa sürede akışa düşer.
+
     Örn: /api/articles?categories=Ekonomi,Dünya&sources=NTV,Reuters
     """
+    _maybe_scrape()
     return query_articles(
         categories=_split_csv(categories),
         sources=_split_csv(sources),
