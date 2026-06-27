@@ -97,8 +97,6 @@ const TOKEN_KEY = "singularity:token";
 // Production'da Vercel/Render'da VITE_API_URL ile ezilir; yoksa yerel backend.
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_URL = `${API_BASE}/api/articles`;
-const REFRESH_URL = `${API_BASE}/api/refresh`;
-const STATUS_URL = `${API_BASE}/api/status`;
 const AUTH_URL = `${API_BASE}/api/auth`;
 const COLUMNISTS_URL = `${API_BASE}/api/columnists`;
 const SOURCES_URL = `${API_BASE}/api/sources`;
@@ -636,6 +634,45 @@ function sig(list) {
   return [...new Set(list.map((a) => a.id))].sort().join("|");
 }
 
+/* --------------------------------------------------------------------------- */
+/*  DAYANIKLI AĞ KATMANI — timeout (AbortController) + exponential backoff retry. */
+/*  Geçici hatalar (ağ kopması, zaman aşımı, 429, 5xx) yeniden denenir; kalıcı   */
+/*  hatalar (4xx; 401/404/409 vb.) çağırana olduğu gibi döner. Render free-tier  */
+/*  ~50 sn soğuk başlangıcını ve anlık dalgalanmaları tolere eder.                */
+/* --------------------------------------------------------------------------- */
+const _sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+function _backoffDelay(attempt, retryAfter) {
+  const ra = retryAfter ? parseInt(retryAfter, 10) : NaN;
+  if (!Number.isNaN(ra)) return Math.min(ra * 1000, 15000); // sunucunun Retry-After'ına saygı
+  const base = 500 * 2 ** attempt; // 500, 1000, 2000, 4000…
+  return Math.min(base + Math.random() * 300, 8000); // jitter + tavan
+}
+
+async function apiFetch(url, { retries = 3, timeoutMs = 25000, ...options } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...options, signal: ctrl.signal });
+      clearTimeout(timer);
+      // Başarılı, kalıcı hata ya da son deneme → çağırana ver (yorumlamak ona kalsın).
+      if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt === retries) {
+        return res;
+      }
+      await _sleep(_backoffDelay(attempt, res.headers.get("Retry-After")));
+    } catch (err) {
+      clearTimeout(timer); // ağ hatası ya da zaman aşımı (abort)
+      lastErr = err;
+      if (attempt === retries) throw err;
+      await _sleep(_backoffDelay(attempt));
+    }
+  }
+  throw lastErr;
+}
+
 /* Canlı API'den (varsa) tercihlere göre haberleri çeker. Kaynak filtresi
    istemci tarafında (opt-out) yapılır; sunucudan geniş bir liste çekilir. */
 async function fetchArticles(prefs) {
@@ -649,7 +686,7 @@ async function fetchArticles(prefs) {
   // Geniş çek: seyrek kategoriler (örn. Türkiye) "en yeni N" penceresinden
   // taşmasın diye yüksek tutulur; kategori sekmeleri istemci tarafında filtrelenir.
   params.set("limit", "500");
-  const res = await fetch(`${API_URL}?${params.toString()}`);
+  const res = await apiFetch(`${API_URL}?${params.toString()}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
   const list = Array.isArray(json) ? json : json?.data ?? [];
@@ -658,7 +695,7 @@ async function fetchArticles(prefs) {
 
 /* Köşe yazarlarını API'den çeker. */
 async function fetchColumnists() {
-  const res = await fetch(COLUMNISTS_URL);
+  const res = await apiFetch(COLUMNISTS_URL);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
   return Array.isArray(json) ? json : [];
@@ -666,7 +703,7 @@ async function fetchColumnists() {
 
 /* Kaynak gruplarını (bölgeye göre) API'den çeker; filtreyi dinamik doldurur. */
 async function fetchSources() {
-  const res = await fetch(SOURCES_URL);
+  const res = await apiFetch(SOURCES_URL);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
   return json && typeof json === "object" ? json : null;
@@ -674,10 +711,11 @@ async function fetchSources() {
 
 /* -------- Auth API yardımcıları -------- */
 async function apiAuth(path, body) {
-  const res = await fetch(`${AUTH_URL}/${path}`, {
+  const res = await apiFetch(`${AUTH_URL}/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    retries: 1, // mutasyon: soğuk başlangıç için tek yeniden deneme yeterli
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail || "İşlem başarısız.");
@@ -685,15 +723,16 @@ async function apiAuth(path, body) {
 }
 
 async function apiMe(token) {
-  const res = await fetch(`${AUTH_URL}/me`, {
+  const res = await apiFetch(`${AUTH_URL}/me`, {
     headers: { Authorization: `Bearer ${token}` },
+    retries: 2,
   });
   if (!res.ok) throw new Error("Oturum geçersiz");
   return res.json();
 }
 
 async function apiSavePreferences(token, prefs) {
-  await fetch(`${AUTH_URL}/preferences`, {
+  await apiFetch(`${AUTH_URL}/preferences`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -703,6 +742,7 @@ async function apiSavePreferences(token, prefs) {
       categories: prefs.categories,
       sources: [],
     }),
+    retries: 1,
   }).catch(() => {});
 }
 
@@ -883,8 +923,6 @@ function AccountControl({ user, onOpenAuth, onLogout, onForYou, compact = false 
 function Masthead({
   goHome,
   live = false,
-  isRefreshing = false,
-  onRefresh,
   onRefreshFeed,
   feedRefreshing = false,
   theme,
@@ -2230,7 +2268,6 @@ export default function App() {
   );
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState("");
 
   const [theme, setTheme] = useState(loadTheme);
@@ -2246,7 +2283,6 @@ export default function App() {
   const [pullView, setPullView] = useState(0); // aşağı-çekme mesafesi (px)
   const [polling, setPolling] = useState(false); // taze haber yoklanıyor
 
-  const refreshJobRef = useRef(null);
   const articlesSigRef = useRef(""); // son canlı içerik imzası
   const pollTimerRef = useRef(null);
   const prefsRef = useRef(prefs);
@@ -2504,66 +2540,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, JSON.stringify(prefs)]);
 
-  // "Yeni Baskı": hattı tetikler, /api/status'u yoklayarak gerçek bitişi bekler.
-  const handleRefresh = async () => {
-    if (isRefreshing || !live) return;
-    setIsRefreshing(true);
-    setToast("Editoryal masa taramaya başladı…");
-
-    const finish = (msg, ms = 5000) => {
-      refreshJobRef.current = null;
-      setIsRefreshing(false);
-      setToast(msg);
-      setTimeout(() => setToast(""), ms);
-    };
-
-    try {
-      const res = await fetch(REFRESH_URL, { method: "POST" });
-      if (!res.ok) throw new Error("API hatası");
-      const data = await res.json();
-      if (!data.job_id) throw new Error("job_id alınamadı");
-
-      refreshJobRef.current = data.job_id;
-      setToast(data.message || "Muhabir botlar sahaya sürüldü…");
-
-      const startedAt = Date.now();
-      const TIMEOUT_MS = 180000;
-
-      const poll = async () => {
-        if (refreshJobRef.current !== data.job_id) return;
-        if (Date.now() - startedAt > TIMEOUT_MS) {
-          finish("Tarama zaman aşımına uğradı. Arka planda sürüyor olabilir.");
-          return;
-        }
-        try {
-          const sres = await fetch(`${STATUS_URL}/${data.job_id}`);
-          const sdata = await sres.json();
-          if (sdata.status === "completed") {
-            try {
-              const list = await fetchArticles(prefsRef.current);
-              if (list.length) setArticles(list);
-            } catch {
-              /* yoksay */
-            }
-            finish("Yeni baskı hazır! Haberler güncellendi.");
-          } else if (
-            sdata.status === "not_found" ||
-            (typeof sdata.status === "string" && sdata.status.startsWith("failed"))
-          ) {
-            finish("Haber derleme sırasında bir hata oluştu.");
-          } else {
-            setTimeout(poll, 3000);
-          }
-        } catch {
-          setTimeout(poll, 5000);
-        }
-      };
-      setTimeout(poll, 3000);
-    } catch {
-      finish("Haber merkezi ile bağlantı kurulamadı.", 3000);
-    }
-  };
-
   const openArticle = (id) => {
     setActiveId(id);
     setView("article");
@@ -2725,8 +2701,6 @@ export default function App() {
       <Masthead
         goHome={goHome}
         live={live}
-        isRefreshing={isRefreshing}
-        onRefresh={handleRefresh}
         onRefreshFeed={refreshFeed}
         feedRefreshing={feedRefreshing}
         theme={theme}
