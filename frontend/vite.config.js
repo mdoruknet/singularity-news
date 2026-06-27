@@ -9,13 +9,21 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icon-180.png", "icon-192.png", "icon-512.png"],
+      includeAssets: [
+        "icon.svg",
+        "favicon-32.png",
+        "icon-180.png",
+        "icon-192.png",
+        "icon-512.png",
+        "icon-maskable-512.png",
+      ],
       manifest: {
-        name: "Singularity — Küresel Haber Ajansı",
-        short_name: "Singularity",
-        description: "Kişiselleştirilebilir Küresel Haber Ajansı",
-        theme_color: "#121212",
-        background_color: "#121212",
+        name: "Singularity News",
+        short_name: "Singularity News",
+        description:
+          "Küresel haberleri bağlam temelli, gazetecilik diliyle Türkçeye çeviren prestijli haber platformu.",
+        theme_color: "#0a0e1b",
+        background_color: "#04050a",
         display: "standalone",
         start_url: "/",
         icons: [
@@ -32,10 +40,15 @@ export default defineConfig({
             purpose: "any",
           },
           {
-            src: "/icon-512.png",
+            src: "/icon-maskable-512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",
+          },
+          {
+            src: "/icon.svg",
+            type: "image/svg+xml",
+            sizes: "any",
           },
         ],
       },
